@@ -2,15 +2,23 @@
 local Skins = LibStub("LibYvSkins-1.0")
 
 local function CreateFixture(name, color, offset, scale)
-    local context = Skins:CreateContext(name, { tokens = { accent = color } })
+    local context = Skins:CreateContext(name, {
+        tokens = { accent = color }, font = "Fonts\\FRIZQT__.TTF",
+        iconBorder = "Interface\\Buttons\\UI-Quickslot2",
+    })
     local panel = context:CreateWindow(UIParent, {
-        title = name, minWidth = 280, minHeight = 220,
+        title = name, minWidth = 340, minHeight = 390,
     })
     panel:SetScale(scale)
     panel:SetPoint("CENTER", UIParent, "CENTER", offset + 0.17, 0.23)
-    local text = panel.content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    text:SetPoint("TOP", 0, -8)
-    text:SetText(name .. " - 1px line / 2px border")
+    local search = context:CreateSearchBox(panel.header, { geometryRoot = panel, height = 28 })
+    search:SetPoint("TOPLEFT", panel.header, "TOPLEFT", 0, 0)
+    search:SetPoint("BOTTOMRIGHT", panel.header, "BOTTOMRIGHT", 0, 0)
+    search.Instructions:SetText("Search preview")
+    local text = context:CreateText(panel.content, {
+        geometryRoot = panel, colorToken = "accent", text = name .. " - native controls",
+    })
+    text:SetPoint("TOP", panel.content, "TOP", 0, -8)
     local expanded = true
     local header, appearance = context:CreateExpandableHeader(panel.content, {
         geometryRoot = panel, height = 31, text = "Accordion preview", expanded = expanded,
@@ -21,6 +29,40 @@ local function CreateFixture(name, color, offset, scale)
         expanded = not expanded
         appearance:SetExpanded(expanded)
     end)
+    local tab, tabAppearance = context:CreateTab(panel.content, {
+        geometryRoot = panel, text = "Selected tab", width = 140, height = 28, selected = true,
+    })
+    tab:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 4, -10)
+    tab:SetScript("OnClick", function() tabAppearance:SetSelected(not tabAppearance.selected) end)
+    local checkbox = context:CreateCheckbox(panel.content, { geometryRoot = panel, width = 28, height = 28 })
+    checkbox:SetPoint("LEFT", tab, "RIGHT", 8, 0)
+    checkbox:SetChecked(true)
+    local input = context:CreateEditBox(panel.content, { geometryRoot = panel, width = 240, height = 28 })
+    input:SetPoint("TOPLEFT", tab, "BOTTOMLEFT", 0, -10)
+    input:SetText("Focus and edit this text")
+    local icon, iconAppearance = context:CreateIcon(panel.content, { geometryRoot = panel })
+    icon:SetPoint("TOPLEFT", input, "BOTTOMLEFT", 4, -14)
+    icon:SetTexture("Interface\\Icons\\INV_Misc_Bag_08")
+    iconAppearance:SetBorderColor(0.64, 0.21, 0.93)
+    local glow = context:CreateGlowBorder(panel.content, { geometryRoot = panel })
+    glow:ClearAllPoints()
+    glow:SetPoint("TOPLEFT", icon, "BOTTOMLEFT", -4, -12)
+    glow:SetSize(240, 38)
+    local bar = context:CreateScrollBar(panel.content, { geometryRoot = panel })
+    bar:SetPoint("TOPRIGHT", header, "BOTTOMRIGHT", 0, -10)
+    bar:SetPoint("BOTTOMRIGHT", panel.content, "BOTTOMRIGHT", -8, 12)
+    local scaleButton = context:CreateButton(panel.footer, {
+        geometryRoot = panel, text = "Scale", width = 88, height = 28,
+    })
+    scaleButton:SetPoint("LEFT", panel.footer, "LEFT", 8, 0)
+    local popup = context:CreatePopupSlider(scaleButton, {
+        minValue = 50, maxValue = 150, step = 5, label = "Scale",
+        onValueChanged = function(value)
+            panel:SetScale(value / 100)
+            context:RefreshGeometry(panel)
+        end,
+    })
+    if popup then popup:SetValue(scale * 100, true) end
     context:CreateSeparator(panel.content, { geometryRoot = panel, left = 8, right = 8 })
     local border = Skins.Pixel.CreateBorder(panel.content, panel.content)
     border:SetColor(color.r, color.g, color.b)
@@ -47,5 +89,5 @@ local function CreateFixture(name, color, offset, scale)
     return panel
 end
 
-CreateFixture("PixelHarnessA", { r = 0.15, g = 0.88, b = 1 }, -180, 0.75)
-CreateFixture("PixelHarnessB", { r = 1, g = 0.65, b = 0.1 }, 180, 1.25)
+CreateFixture("PixelHarnessA", { r = 0.15, g = 0.88, b = 1 }, -220, 0.75)
+CreateFixture("PixelHarnessB", { r = 1, g = 0.65, b = 0.1 }, 220, 1.25)

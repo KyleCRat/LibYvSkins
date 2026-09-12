@@ -2,6 +2,16 @@
     <Script file="LibYvSkins-1.0.lua"/>
     <Script file="Pixel.lua"/>
     <Script file="Context.lua"/>
+    <Script file="Skins\Modern.lua"/>
+    <Script file="Components\Control.lua"/>
+    <Script file="Components\Button.lua"/>
+    <Script file="Components\EditBox.lua"/>
+    <Script file="Components\Regions.lua"/>
+    <Script file="Components\Icon.lua"/>
+    <Script file="Components\GlowBorder.lua"/>
+    <Script file="Components\ScrollBar.lua"/>
+    <Script file="Components\NativeButton.lua"/>
+    <Script file="Integrations\PopupSlider.lua"/>
     <Script file="Window.lua"/>
     <Script file="Components\Separator.lua"/>
     <Script file="Components\ExpandableHeader.lua"/>

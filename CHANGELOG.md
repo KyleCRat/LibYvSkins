@@ -3,6 +3,15 @@
 ## Unreleased
 
 ### Added
+- Added Modern button, tab, checkbox, search/edit-box, scrollbar, text, texture,
+  icon, and glow constructors with raw controls and reusable visual-state handles.
+  Context appearance refreshes preserve values, focus, semantic item colors,
+  and pooled visibility without rebuilding controls or installing new hooks.
+- Centralized Modern rendering, including constructor-owned native close/resize
+  art. Button hover/press updates reuse state without font/atlas lookups.
+- Added an optional LibPopupSlider adapter using its public visual-parts,
+  interaction, and font APIs. Preserve value/drag ownership, defer font fitting
+  during drags, and report legacy embeds that lack presentation support.
 - Added a Modern expandable-header constructor matching LMS's full-width
   tertiary bar and right-side state arrow, without a leading icon slot or
   divider. Raw text/click/enabled APIs remain accessible; appearance handles

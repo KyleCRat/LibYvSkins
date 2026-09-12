@@ -17,17 +17,8 @@ local DEFAULT_WIDTH = 100
 local DEFAULT_HEIGHT = 34
 local DEFAULT_FONT_SIZE = 18
 local LABEL_LEFT = 12
-local ARROW_RIGHT = 12
 local ARROW_SIZE = 17
 local ARROW_LABEL_GAP = 4
-local ATLASES = {
-    normal = "common-button-tertiary-normal",
-    hover = "common-button-tertiary-hover",
-    pressed = "common-button-tertiary-pressed",
-    disabled = "common-button-tertiary-disabled",
-    arrow = "common-dropdown-icon-next",
-    disabledArrow = "common-dropdown-icon-next-disabled",
-}
 
 local function ValidateOptions(options)
     assert(type(options) == "table", "expandable header options must be a table")
@@ -56,10 +47,9 @@ function definition.Validate(header, parts, options)
         "expandable header, bounds, and geometryRoot must share an effective scale")
 end
 
-local function CreateStateTexture(header, atlas)
+local function CreateStateTexture(header)
     local texture = header:CreateTexture(nil, "BACKGROUND")
     texture:SetAllPoints(header)
-    texture:SetAtlas(atlas, false)
     return texture
 end
 
@@ -69,9 +59,9 @@ function definition.Initialize(handle, options)
     handle.hovered = false
     local header = handle.target
     local parts = handle.parts
-    parts.normal = CreateStateTexture(header, ATLASES.normal)
-    parts.pressed = CreateStateTexture(header, ATLASES.pressed)
-    parts.disabled = CreateStateTexture(header, ATLASES.disabled)
+    parts.normal = CreateStateTexture(header)
+    parts.pressed = CreateStateTexture(header)
+    parts.disabled = CreateStateTexture(header)
     header:SetNormalTexture(parts.normal)
     header:SetPushedTexture(parts.pressed)
     header:SetDisabledTexture(parts.disabled)
@@ -120,16 +110,7 @@ function definition.Initialize(handle, options)
 end
 
 function definition.ApplyAppearance(handle)
-    local header, parts = handle.target, handle.parts
-    local enabled = header:IsEnabled()
-    parts.normal:SetAtlas(enabled and handle.hovered and ATLASES.hover or ATLASES.normal, false)
-    parts.arrow:SetAtlas(enabled and ATLASES.arrow or ATLASES.disabledArrow, false)
-    parts.arrow:SetRotation(handle.expanded and math.pi * 1.5 or math.pi * 0.5)
-    parts.arrow:ClearAllPoints()
-    parts.arrow:SetPoint("RIGHT", header, "RIGHT", -ARROW_RIGHT, handle.expanded and 2 or -1)
-    local r, g, b, a = handle.context:GetColor(handle.colorToken)
-    parts.label:SetTextColor(r, g, b, enabled and a or a * 0.5)
-    header:SetAlpha(handle.alpha)
+    handle.context:_GetRenderer().ExpandableHeader(handle)
 end
 
 function definition.Layout(handle)

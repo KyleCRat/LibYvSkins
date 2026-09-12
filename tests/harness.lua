@@ -8,11 +8,14 @@ local function Read(path)
 end
 
 function Harness.New()
-    local state = { height = 1440, factorReads = 0, regions = 0, hooks = 0, timers = {}, frames = {} }
+    local state = { height = 1440, factorReads = 0, regions = 0, hooks = 0,
+        fontWrites = 0, atlasWrites = 0, timers = {}, frames = {} }
     local env = setmetatable({}, { __index = _G })
     env._G = env
     env.strmatch = string.match
     env.GameFontNormalLarge = {}
+    env.GameFontNormal = {}
+    env.GameFontHighlight = {}
     env.LibStub = nil
     local stub = assert(loadstring(Read("tests/fixtures/LibStub.lua"), "@LibStub.lua"))
     setfenv(stub, env)()
@@ -58,10 +61,31 @@ function Harness.New()
     function Region:SetSnapToPixelGrid(value) self.snap = value end
     function Region:SetTexelSnappingBias(value) self.bias = value end
     function Region:SetAlpha(value) self.alpha = value end
-    function Region:SetTexture(...) self.texture = { ... } end
-    function Region:SetAtlas(atlas, useAtlasSize) self.atlas, self.useAtlasSize = atlas, useAtlasSize end
+    function Region:GetAlpha() return self.alpha or 1 end
+    function Region:GetAtlas() return self.atlas end
+    function Region:GetTexture() return self.texture and self.texture[1] end
+    function Region:GetTexCoord() return unpack(self.texCoord or { 0, 0, 0, 1, 1, 0, 1, 1 }) end
+    function Region:GetVertexColor() return unpack(self.color or { 1, 1, 1, 1 }) end
+    function Region:GetBlendMode() return self.blend or "BLEND" end
+    function Region:SetTexture(...) self.texture, self.atlas = { ... }, nil end
+    function Region:SetAtlas(atlas, useAtlasSize)
+        state.atlasWrites = state.atlasWrites + 1
+        self.atlas, self.useAtlasSize, self.texture = atlas, useAtlasSize, nil
+    end
     function Region:SetRotation(value) self.rotation = value end
-    function Region:SetFont(...) self.font = { ... } end
+    function Region:SetDesaturated(value) self.desaturated = value end
+    function Region:SetTexCoord(...) self.texCoord = { ... } end
+    function Region:IsMouseOver() return self.mouseOver == true end
+    function Region:SetCheckedTexture(value) self.checkedTexture = value end
+    function Region:SetDisabledCheckedTexture(value) self.disabledCheckedTexture = value end
+    function Region:SetChecked(value) self.checked = value end
+    function Region:GetChecked() return self.checked end
+    function Region:SetAutoFocus(value) self.autoFocus = value end
+    function Region:SetTextInsets(...) self.textInsets = { ... } end
+    function Region:HasFocus() return self.focused == true end
+    function Region:SetFocus() self.focused = true; self:RunScript("OnEditFocusGained") end
+    function Region:ClearFocus() self.focused = false; self:RunScript("OnEditFocusLost") end
+    function Region:SetFont(...) state.fontWrites = state.fontWrites + 1; self.font = { ... } end
     function Region:SetFontObject(value) self.fontObject = value end
     function Region:SetTextColor(...) self.textColor = { ... } end
     function Region:SetJustifyH(value) self.justifyH = value end
@@ -74,10 +98,18 @@ function Harness.New()
         if self.fontString then self.fontString:SetText(value) else self.text = value end
     end
     function Region:GetText() return self.fontString and self.fontString:GetText() or self.text end
+    function Region:GetStringWidth() return #(self:GetText() or "") * (self.font and self.font[2] or 12) * 0.5 end
+    function Region:GetStringHeight() return self.font and self.font[2] or 12 end
+    function Region:SetBackdrop(value) self.backdrop = value end
+    function Region:GetBackdrop() return self.backdrop end
+    function Region:SetBackdropColor(...) self.backdropColor = { ... } end
+    function Region:SetBackdropBorderColor(...) self.backdropBorderColor = { ... } end
     function Region:SetNormalTexture(value) self.normalTexture = value end
     function Region:GetNormalTexture() return self.normalTexture end
     function Region:SetPushedTexture(value) self.pushedTexture = value end
     function Region:GetPushedTexture() return self.pushedTexture end
+    function Region:SetHighlightTexture(value) self.highlightTexture = value end
+    function Region:GetHighlightTexture() return self.highlightTexture end
     function Region:SetDisabledTexture(value) self.disabledTexture = value end
     function Region:GetDisabledTexture() return self.disabledTexture end
     function Region:SetButtonState(value) self.buttonState = value end
@@ -185,6 +217,19 @@ function Harness.New()
     end
     function Region:SetOnResizeStoppedCallback(callback) self.resizeStoppedCallback = callback end
     function Region:SetMaxWidth(value) self.maxWidth = value end
+    env.MinimalScrollBarThumbScriptsMixin = {
+        OnButtonStateChanged = function(thumb)
+            thumb.nativeStateCalls = (thumb.nativeStateCalls or 0) + 1
+        end,
+        OnSizeChanged = function(thumb, width, height)
+            thumb.nativeSize = { width, height }
+        end,
+    }
+    env.MinimalScrollBarStepperScriptsMixin = {
+        OnButtonStateChanged = function(button)
+            button.nativeStateCalls = (button.nativeStateCalls or 0) + 1
+        end,
+    }
     function env.CreateFrame(frameType, name, parent, template)
         local frame = setmetatable({ events = {}, scripts = {}, scriptHooks = {},
             frameType = frameType, name = name, parent = parent, template = template }, Region)
@@ -198,12 +243,36 @@ function Harness.New()
             frame.TitleContainer = env.CreateFrame("Frame", nil, frame)
             frame.CloseButton = env.CreateFrame("Button", nil, frame)
             frame.CloseButton:SetScript("OnClick", function() frame:Hide() end)
+            local normal = frame.CloseButton:CreateTexture()
+            normal:SetAtlas("native-close", false)
+            frame.CloseButton:SetNormalTexture(normal)
         elseif template == "PanelResizeButtonTemplate" then
+            local normal = frame:CreateTexture()
+            normal:SetTexture("native-resize")
+            frame:SetNormalTexture(normal)
             frame:SetScript("OnMouseDown", function(self) self.target:StartSizing() end)
             frame:SetScript("OnMouseUp", function(self)
                 self.target:StopMovingOrSizing()
                 self.resizeStoppedCallback(self.target)
             end)
+        elseif template == "SearchBoxNineSliceTemplate" then
+            frame.Background = frame:CreateTexture()
+            frame.Instructions = frame:CreateFontString()
+            frame.searchIcon = frame:CreateTexture()
+            frame.clearButton = env.CreateFrame("Button", nil, frame)
+            frame.clearButton:SetScript("OnClick", function() frame:SetText(""); frame:ClearFocus() end)
+            frame:SetScript("OnEnterPressed", function() frame:ClearFocus() end)
+            frame:SetScript("OnEscapePressed", function() frame:ClearFocus() end)
+        elseif template == "MinimalScrollBar" then
+            frame.Track = env.CreateFrame("Frame", nil, frame)
+            frame.Track.Begin = frame.Track:CreateTexture()
+            frame.Track.Middle = frame.Track:CreateTexture()
+            frame.Track.End = frame.Track:CreateTexture()
+            frame.Track.Thumb = env.CreateFrame("Button", nil, frame.Track)
+            frame.Back = env.CreateFrame("Button", nil, frame)
+            frame.Forward = env.CreateFrame("Button", nil, frame)
+            frame.Track.Thumb:SetScript("OnDragStart", function(self) self.dragging = true end)
+            frame.Forward:SetScript("OnClick", function(self) self.clicked = true end)
         end
         return frame
     end
@@ -234,6 +303,37 @@ function Harness.New()
         end
         self.lib = env.LibStub("LibYvSkins-1.0")
         return self.lib
+    end
+    function state:PopupLibrary(legacy)
+        local library = env.LibStub:NewLibrary("LibPopupSlider-1.0", 1)
+        function library:Create(button, options)
+            local popup = env.CreateFrame("Frame", nil, button)
+            popup:Hide()
+            popup:SetBackdrop({ bgFile = "native-background", edgeFile = "native-border" })
+            popup.value = 100
+            function popup:GetValue() return self.value end
+            function popup:SetValue(value) self.value = value end
+            if legacy then return popup end
+            local parts = {
+                frame = popup, slider = env.CreateFrame("Slider", nil, popup),
+                label = popup:CreateFontString(), value = popup:CreateFontString(),
+                track = popup:CreateTexture(), thumb = popup:CreateTexture(),
+                markers = { popup:CreateTexture(), popup:CreateTexture(), popup:CreateTexture() },
+                font = "original-font", fontFlags = "OUTLINE",
+                backgroundColor = { r = 0.1, g = 0.1, b = 0.1, a = 0.95 },
+                trackColor = { r = 0.5, g = 0.5, b = 0.5, a = 1 },
+                markerColor = { r = 0.5, g = 0.5, b = 0.5, a = 1 },
+                thumbColor = { r = 1, g = 1, b = 1, a = 1 },
+            }
+            function popup:GetVisualParts() return parts end
+            function popup:IsInteracting() return self.dragging == true end
+            function popup:SetFontAppearance(font, flags)
+                if parts.font == font and parts.fontFlags == flags then return end
+                assert(not self:IsInteracting(), "active drag")
+                parts.font, parts.fontFlags = font, flags
+            end
+            return popup
+        end
     end
     state.env = env
     return state

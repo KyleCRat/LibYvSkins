@@ -15,6 +15,25 @@ local FOOTER_LEFT, FOOTER_RIGHT, FOOTER_BOTTOM, FOOTER_HEIGHT = 3, -15, 4, 28
 local RESIZE_RIGHT, RESIZE_BOTTOM = -2, 3
 local DEFAULT_INSET_BACKGROUND = "Interface\\FrameGeneral\\UIFrameMidnightBackground"
 
+local definition = lib._roles.window or {}
+lib._roles.window = definition
+
+function definition.Validate(target, parts, options)
+    assert(target and target.Inset and target.TopTileStreaks, "window role requires a library window")
+end
+
+function definition.Initialize(handle, options)
+    lib._InitializeControl(handle, options)
+    handle.insetBackground = options.insetBackground or DEFAULT_INSET_BACKGROUND
+end
+
+function definition.ApplyAppearance(handle)
+    handle.context:_GetRenderer().Window(handle)
+end
+
+function definition.Layout(handle)
+end
+
 function Context:GetWindowChromeWidth()
     return INSET_LEFT - INSET_RIGHT + CONTENT_LEFT - CONTENT_RIGHT
 end
@@ -56,11 +75,6 @@ function Context:CreateWindow(parent, options)
     end
 
     -- Keep Blizzard's outer background, native title/portrait, and close button.
-    frame.TopTileStreaks:Hide()
-    frame.TopTileStreaks:SetAlpha(0)
-    frame.Inset.Bg:SetTexture(options.insetBackground or DEFAULT_INSET_BACKGROUND, "REPEAT", "REPEAT")
-    frame.Inset.Bg:SetHorizTile(true)
-    frame.Inset.Bg:SetVertTile(true)
     frame.Inset:ClearAllPoints()
     frame.Inset:SetPoint("TOPLEFT", frame, "TOPLEFT", INSET_LEFT, INSET_TOP)
     frame.Inset:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", INSET_RIGHT, INSET_BOTTOM)
@@ -85,6 +99,9 @@ function Context:CreateWindow(parent, options)
 
     local root = self:_GetGeometryRoot(frame)
     root.window = true
+    self:RegisterComponent("window", frame, { bounds = frame }, options)
+    self:RegisterComponent("nativeButton", frame.CloseButton, { bounds = frame }, { geometryRoot = frame })
+    self:RegisterComponent("nativeButton", frame.resizeButton, { bounds = frame }, { geometryRoot = frame })
     local function RefreshGeometry()
         self:RefreshGeometry(frame)
     end

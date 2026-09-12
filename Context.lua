@@ -27,6 +27,9 @@ function lib:CreateContext(addonName, options)
     end
     options = options or {}
     assert(type(options) == "table", "context options must be a table")
+    assert(options.font == nil or (type(options.font) == "string" and options.font ~= ""), "font must be a path")
+    assert(options.iconBorder == nil or type(options.iconBorder) == "string" or type(options.iconBorder) == "number",
+        "iconBorder must be a texture path or file ID")
     local tokens = { accent = { r = 1, g = 1, b = 1, a = 1 } }
     CopyColors(options.tokens or {}, tokens)
     local context = setmetatable({
@@ -34,10 +37,22 @@ function lib:CreateContext(addonName, options)
         _tokens = tokens,
         _components = {},
         _roots = {},
+        _media = { font = options.font, iconBorder = options.iconBorder },
         appearanceRevision = 1,
     }, Context)
     self._contexts[addonName] = context
     return context
+end
+
+function Context:_GetRenderer()
+    return lib._skins.modern
+end
+
+function Context:RefreshAppearance()
+    self.appearanceRevision = self.appearanceRevision + 1
+    for _, handle in pairs(self._components) do
+        handle:RefreshAppearance()
+    end
 end
 
 function Context:GetColor(token)
@@ -51,10 +66,7 @@ function Context:SetTokens(tokens)
     CopyColors(self._tokens, colors)
     CopyColors(tokens, colors)
     self._tokens = colors
-    self.appearanceRevision = self.appearanceRevision + 1
-    for _, handle in pairs(self._components) do
-        handle:RefreshAppearance()
-    end
+    self:RefreshAppearance()
 end
 
 function Context:_GetGeometryRoot(region)
@@ -108,6 +120,10 @@ function Context:UnregisterComponent(target)
     if not handle then
         return
     end
+    local definition = lib._roles[handle.role]
+    if definition.OnUnregister then
+        definition.OnUnregister(handle)
+    end
     handle.target:Hide()
     self._components[target] = nil
     handle.root.handles[handle] = nil
@@ -150,6 +166,7 @@ end
 function Handle:SetAlpha(alpha)
     assert(type(alpha) == "number" and alpha >= 0 and alpha <= 1, "alpha must be between zero and one")
     self.alpha = alpha
+    self.alphaOwned = true
     self:RefreshAppearance()
 end
 
