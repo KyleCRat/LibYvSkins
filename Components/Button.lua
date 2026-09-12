@@ -37,6 +37,7 @@ end
 function definition.Initialize(handle, options)
     lib._InitializeControl(handle, options, Button)
     local button, parts = handle.target, handle.parts
+    parts.surface = lib._CreateSurface(handle, button, button)
     handle.variant = options.variant or "command"
     handle.selected = options.selected == true
     handle.isTab = options.isTab == true
@@ -44,6 +45,7 @@ function definition.Initialize(handle, options)
     handle.pressIcon = options.pressIcon == true
     handle.iconAlpha = options.iconAlpha or 1
     handle.disabledIconAlpha = options.disabledIconAlpha or 0.5
+    handle.checkmarkScale = options.checkmarkScale or 1.25
     parts.normal = lib._CreateStateTexture(button, "BACKGROUND")
     parts.hover = lib._CreateStateTexture(button, "BORDER")
     parts.pressed = lib._CreateStateTexture(button, "BORDER")

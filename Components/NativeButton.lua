@@ -17,6 +17,12 @@ end
 
 function definition.Initialize(handle, options)
     lib._InitializeControl(handle, options)
+    handle.kind = options.kind
+    handle.parts.surface = lib._CreateSurface(handle, handle.target, handle.target)
+    handle.parts.icon = handle.target:CreateTexture(nil, "OVERLAY")
+    handle.parts.icon:SetSize(16, 16)
+    handle.parts.icon:SetPoint("CENTER", handle.target, "CENTER", 0, 0)
+    handle.parts.icon:Hide()
     handle.parts.states = {}
     for _, slot in ipairs(SLOTS) do
         local texture = handle.target["Get" .. slot .. "Texture"](handle.target)
@@ -29,6 +35,14 @@ function definition.Initialize(handle, options)
             }
         end
     end
+    local function Refresh() handle:RefreshAppearance() end
+    handle.target:HookScript("OnEnter", function() handle.hovered = true; Refresh() end)
+    handle.target:HookScript("OnLeave", function() handle.hovered = false; Refresh() end)
+    handle.target:HookScript("OnMouseDown", function() handle.pressed = true; Refresh() end)
+    handle.target:HookScript("OnMouseUp", function() handle.pressed = false; Refresh() end)
+    handle.target:HookScript("OnHide", function() handle.hovered, handle.pressed = false, false; Refresh() end)
+    handle.target:HookScript("OnEnable", Refresh)
+    handle.target:HookScript("OnDisable", Refresh)
 end
 
 function definition.ApplyAppearance(handle)

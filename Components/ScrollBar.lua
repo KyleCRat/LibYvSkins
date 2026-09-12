@@ -19,6 +19,8 @@ function definition.Initialize(handle, options)
     local bar, parts = handle.target, handle.parts
     parts.track, parts.thumb = bar.Track, bar.Track.Thumb
     parts.back, parts.forward = bar.Back, bar.Forward
+    parts.trackSurface = lib._CreateSurface(handle, parts.track, parts.track)
+    parts.thumbSurface = lib._CreateSurface(handle, parts.thumb, parts.thumb)
     -- Only the template's visual callbacks dispatch to the renderer. Native
     -- scrolling, dragging, enabled-state logic, and ScrollBox binding remain.
     local function Refresh() handle:RefreshAppearance() end

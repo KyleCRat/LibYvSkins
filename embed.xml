@@ -2,7 +2,10 @@
     <Script file="LibYvSkins-1.0.lua"/>
     <Script file="Pixel.lua"/>
     <Script file="Context.lua"/>
+    <Script file="Selection.lua"/>
+    <Script file="Components\Surface.lua"/>
     <Script file="Skins\Modern.lua"/>
+    <Script file="Skins\Flat.lua"/>
     <Script file="Components\Control.lua"/>
     <Script file="Components\Button.lua"/>
     <Script file="Components\EditBox.lua"/>

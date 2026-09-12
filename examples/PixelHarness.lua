@@ -7,13 +7,12 @@ local function CreateFixture(name, color, offset, scale)
         iconBorder = "Interface\\Buttons\\UI-Quickslot2",
     })
     local panel = context:CreateWindow(UIParent, {
-        title = name, minWidth = 340, minHeight = 390,
+        title = name, minWidth = 340, minHeight = 390, compactHeader = true,
     })
     panel:SetScale(scale)
     panel:SetPoint("CENTER", UIParent, "CENTER", offset + 0.17, 0.23)
     local search = context:CreateSearchBox(panel.header, { geometryRoot = panel, height = 28 })
-    search:SetPoint("TOPLEFT", panel.header, "TOPLEFT", 0, 0)
-    search:SetPoint("BOTTOMRIGHT", panel.header, "BOTTOMRIGHT", 0, 0)
+    context:SetHeaderControls(panel, {}, search)
     search.Instructions:SetText("Search preview")
     local text = context:CreateText(panel.content, {
         geometryRoot = panel, colorToken = "accent", text = name .. " - native controls",
@@ -55,6 +54,13 @@ local function CreateFixture(name, color, offset, scale)
         geometryRoot = panel, text = "Scale", width = 88, height = 28,
     })
     scaleButton:SetPoint("LEFT", panel.footer, "LEFT", 8, 0)
+    local skinButton = context:CreateButton(panel.footer, {
+        geometryRoot = panel, text = "Switch skin", width = 110, height = 28,
+    })
+    skinButton:SetPoint("LEFT", scaleButton, "RIGHT", 4, 0)
+    skinButton:SetScript("OnClick", function()
+        context:RequestSkin(context:GetAppliedSkin() == "modern" and "flat" or "modern")
+    end)
     local popup = context:CreatePopupSlider(scaleButton, {
         minValue = 50, maxValue = 150, step = 5, label = "Scale",
         onValueChanged = function(value)

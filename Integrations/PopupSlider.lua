@@ -23,14 +23,22 @@ function definition.Initialize(handle, options)
     lib._InitializeControl(handle, options)
     local parts = handle.target:GetVisualParts()
     handle.parts.visuals = parts
+    handle.parts.surface = lib._CreateSurface(handle, handle.target, handle.target)
     handle.baseline = {
         backdrop = handle.target:GetBackdrop(),
         backgroundColor = CopyColor(parts.backgroundColor),
         trackColor = CopyColor(parts.trackColor), markerColor = CopyColor(parts.markerColor),
         thumbColor = CopyColor(parts.thumbColor), font = parts.font, fontFlags = parts.fontFlags,
     }
-    handle.target:HookScript("OnShow", function() handle:RefreshAppearance() end)
-    handle.target:HookScript("OnHide", function() handle:RefreshAppearance() end)
+    handle.target:HookScript("OnShow", function()
+        handle:RefreshAppearance()
+        -- The external popup positions itself after OnShow, once per drag.
+        C_Timer.After(0, function() handle:RefreshGeometry() end)
+    end)
+    handle.target:HookScript("OnHide", function()
+        handle:RefreshAppearance()
+        handle.context:RetryPendingSkin()
+    end)
 end
 
 function definition.ApplyAppearance(handle)
@@ -50,6 +58,7 @@ function lib._contextPrototype:CreatePopupSlider(button, options)
         -- its native Modern popup usable, and expose the missing capability
         -- so later skin selection can reject an incomplete visual transition.
         self._popupSliderUnavailable = "The loaded LibPopupSlider does not expose its presentation API."
+        self:RetryPendingSkin()
         return popup, nil, self._popupSliderUnavailable
     end
     local handle = self:RegisterComponent("popupSlider", popup, { bounds = popup }, { geometryRoot = popup })

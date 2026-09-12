@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### Added
+- Added a Flat renderer, one-physical-pixel surfaces and two-pixel icon borders,
+  opt-in compact window chrome, and shared toolbar layout/minimum measurements.
+- Added requested/applied skin state, coalesced live transitions, combat and
+  move/resize/popup-drag deferral, and consumer lifecycle/status callbacks.
 - Added Modern button, tab, checkbox, search/edit-box, scrollbar, text, texture,
   icon, and glow constructors with raw controls and reusable visual-state handles.
   Context appearance refreshes preserve values, focus, semantic item colors,

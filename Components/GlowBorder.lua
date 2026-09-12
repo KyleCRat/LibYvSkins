@@ -14,6 +14,7 @@ end
 
 function definition.Initialize(handle, options)
     lib._InitializeControl(handle, options)
+    handle.parts.surface = lib._CreateSurface(handle, handle.target, handle.target, true)
     handle.parts.edges = {}
     for _, key in ipairs({ "topLeft", "topRight", "bottomLeft", "bottomRight", "top", "bottom", "left", "right" }) do
         handle.parts.edges[key] = handle.target:CreateTexture(nil, "BORDER")

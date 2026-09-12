@@ -45,6 +45,8 @@ function definition.Validate(header, parts, options)
     assert(header:GetEffectiveScale() == root:GetEffectiveScale()
         and parts.bounds:GetEffectiveScale() == root:GetEffectiveScale(),
         "expandable header, bounds, and geometryRoot must share an effective scale")
+    assert(options.clip == nil or (type(options.clip.GetRect) == "function"
+        and options.clip:GetEffectiveScale() == root:GetEffectiveScale()), "clip must share the header scale")
 end
 
 local function CreateStateTexture(header)
@@ -55,10 +57,12 @@ end
 
 function definition.Initialize(handle, options)
     setmetatable(handle, HeaderHandle)
+    handle.clip = options.clip
     handle.expanded = options.expanded ~= false
     handle.hovered = false
     local header = handle.target
     local parts = handle.parts
+    parts.surface = lib._CreateSurface(handle, header, header)
     parts.normal = CreateStateTexture(header)
     parts.pressed = CreateStateTexture(header)
     parts.disabled = CreateStateTexture(header)
@@ -96,7 +100,7 @@ function definition.Initialize(handle, options)
         handle:RefreshAppearance()
     end)
     header:HookScript("OnHide", function()
-        handle.hovered = false
+        handle.hovered, handle.pressed = false, false
         header:SetButtonState("NORMAL")
         handle:RefreshAppearance()
     end)
@@ -104,7 +108,15 @@ function definition.Initialize(handle, options)
         handle:RefreshAppearance()
     end)
     header:HookScript("OnDisable", function()
-        handle.hovered = false
+        handle.hovered, handle.pressed = false, false
+        handle:RefreshAppearance()
+    end)
+    header:HookScript("OnMouseDown", function()
+        handle.pressed = header:IsEnabled()
+        handle:RefreshAppearance()
+    end)
+    header:HookScript("OnMouseUp", function()
+        handle.pressed = false
         handle:RefreshAppearance()
     end)
 end
@@ -131,6 +143,7 @@ end
 function HeaderHandle:RefreshGeometry()
     if self.registered ~= false then
         lib._roles[self.role].Layout(self)
+        lib._LayoutSurfaces(self)
     end
 end
 

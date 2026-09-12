@@ -45,7 +45,7 @@ function lib:CreateContext(addonName, options)
 end
 
 function Context:_GetRenderer()
-    return lib._skins.modern
+    return lib._skins[self:GetAppliedSkin()]
 end
 
 function Context:RefreshAppearance()
@@ -160,6 +160,7 @@ function Handle:RefreshAppearance()
         return
     end
     lib._roles[self.role].ApplyAppearance(self)
+    lib._LayoutSurfaces(self)
     self.appearanceRevision = self.context.appearanceRevision
 end
 
@@ -187,6 +188,7 @@ function Handle:RefreshGeometry()
         lib.Pixel.UpdateMetrics(self.root.metrics, self.root.region)
     end
     lib._roles[self.role].Layout(self)
+    lib._LayoutSurfaces(self)
 end
 
 function lib:RefreshDisplay()

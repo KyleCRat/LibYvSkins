@@ -34,6 +34,7 @@ function Harness.New()
         return pixels * unit
     end
     env.C_Timer = { After = function(_, callback) state.timers[#state.timers + 1] = callback end }
+    env.InCombatLockdown = function() return state.combat == true end
 
     local Region = {}
     Region.__index = Region
@@ -169,6 +170,19 @@ function Harness.New()
     end
     function Region:GetWidth() local _, _, width = self:GetRect() return width or self.width end
     function Region:GetHeight() local _, _, _, height = self:GetRect() return height or self.height end
+    function Region:GetSize() return self:GetWidth(), self:GetHeight() end
+    function Region:GetNumPoints()
+        local count = 0
+        for _ in pairs(self.points or {}) do count = count + 1 end
+        return count
+    end
+    function Region:GetPoint(index)
+        local count = 0
+        for key, point in pairs(self.points or {}) do
+            count = count + 1
+            if count == index then return key, unpack(point) end
+        end
+    end
     function Region:CreateTexture(_, layer, _, sublevel)
         state.regions = state.regions + 1
         return setmetatable({ parent = self, layer = layer, sublevel = sublevel }, Region)
@@ -182,6 +196,7 @@ function Harness.New()
     function Region:GetScript(script) return self.scripts[script] end
     function Region:HookScript(script, callback)
         state.hooks = state.hooks + 1
+        self.scriptHooks = self.scriptHooks or {}
         self.scriptHooks[script] = self.scriptHooks[script] or {}
         table.insert(self.scriptHooks[script], callback)
     end
@@ -193,6 +208,8 @@ function Harness.New()
     function Region:GetParent() return self.parent end
     function Region:GetObjectType() return self.frameType or "Texture" end
     function Region:SetFrameStrata(value) self.strata = value end
+    function Region:SetFrameLevel(value) self.frameLevel = value end
+    function Region:GetFrameLevel() return self.frameLevel or 0 end
     function Region:SetToplevel(value) self.toplevel = value end
     function Region:SetClampedToScreen(value) self.clamped = value end
     function Region:SetMovable(value) self.movable = value end
@@ -217,6 +234,8 @@ function Harness.New()
     end
     function Region:SetOnResizeStoppedCallback(callback) self.resizeStoppedCallback = callback end
     function Region:SetMaxWidth(value) self.maxWidth = value end
+    function Region:IsActive() return self.isActive == true end
+    function Region:OnMouseUp() self:RunScript("OnMouseUp") end
     env.MinimalScrollBarThumbScriptsMixin = {
         OnButtonStateChanged = function(thumb)
             thumb.nativeStateCalls = (thumb.nativeStateCalls or 0) + 1
@@ -237,11 +256,16 @@ function Harness.New()
         if template == "ButtonFrameTemplate" then
             frame.Inset = env.CreateFrame("Frame", nil, frame)
             frame.Inset.Bg = frame.Inset:CreateTexture()
+            frame.Inset.NineSlice = env.CreateFrame("Frame", nil, frame.Inset)
+            frame.NineSlice = env.CreateFrame("Frame", nil, frame)
+            frame.PortraitContainer = env.CreateFrame("Frame", nil, frame)
             frame.TopTileStreaks = frame:CreateTexture()
             frame.Bg = frame:CreateTexture()
             frame.Bg:SetTexture("native-outer-background")
             frame.TitleContainer = env.CreateFrame("Frame", nil, frame)
             frame.CloseButton = env.CreateFrame("Button", nil, frame)
+            frame.CloseButton:SetSize(32, 32)
+            frame.CloseButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -4, -3)
             frame.CloseButton:SetScript("OnClick", function() frame:Hide() end)
             local normal = frame.CloseButton:CreateTexture()
             normal:SetAtlas("native-close", false)
@@ -250,8 +274,9 @@ function Harness.New()
             local normal = frame:CreateTexture()
             normal:SetTexture("native-resize")
             frame:SetNormalTexture(normal)
-            frame:SetScript("OnMouseDown", function(self) self.target:StartSizing() end)
+            frame:SetScript("OnMouseDown", function(self) self.isActive = true; self.target:StartSizing() end)
             frame:SetScript("OnMouseUp", function(self)
+                self.isActive = false
                 self.target:StopMovingOrSizing()
                 self.resizeStoppedCallback(self.target)
             end)
@@ -269,8 +294,13 @@ function Harness.New()
             frame.Track.Middle = frame.Track:CreateTexture()
             frame.Track.End = frame.Track:CreateTexture()
             frame.Track.Thumb = env.CreateFrame("Button", nil, frame.Track)
+            frame.Track.Thumb.Begin = frame.Track.Thumb:CreateTexture()
+            frame.Track.Thumb.Middle = frame.Track.Thumb:CreateTexture()
+            frame.Track.Thumb.End = frame.Track.Thumb:CreateTexture()
             frame.Back = env.CreateFrame("Button", nil, frame)
             frame.Forward = env.CreateFrame("Button", nil, frame)
+            frame.Back.Texture = frame.Back:CreateTexture()
+            frame.Forward.Texture = frame.Forward:CreateTexture()
             frame.Track.Thumb:SetScript("OnDragStart", function(self) self.dragging = true end)
             frame.Forward:SetScript("OnClick", function(self) self.clicked = true end)
         end

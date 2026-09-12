@@ -36,6 +36,8 @@ function lib._ValidateControl(parent, options)
     local root = options.geometryRoot or parent
     assert(type(root.GetEffectiveScale) == "function" and parent:GetEffectiveScale() == root:GetEffectiveScale(),
         "control and geometryRoot must share an effective scale")
+    assert(options.clip == nil or (type(options.clip.GetRect) == "function"
+        and options.clip:GetEffectiveScale() == root:GetEffectiveScale()), "clip must share the control scale")
 end
 
 function lib._InitializeControl(handle, options, prototype)
@@ -45,11 +47,13 @@ function lib._InitializeControl(handle, options, prototype)
     handle.fontFlags = options.fontFlags or ""
     handle.fontObject = options.fontObject
     handle.alphaOwned = options.alpha ~= nil
+    handle.clip = options.clip
 end
 
 function Control:RefreshGeometry()
     if self.registered ~= false then
         lib._roles[self.role].Layout(self)
+        lib._LayoutSurfaces(self)
     end
 end
 

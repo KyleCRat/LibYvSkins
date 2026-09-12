@@ -17,6 +17,7 @@ end
 function definition.Initialize(handle, options)
     lib._InitializeControl(handle, options)
     local editBox, parts = handle.target, handle.parts
+    parts.surface = lib._CreateSurface(handle, editBox, editBox)
     if options.search then
         parts.background = editBox.Background
         parts.instructions = editBox.Instructions

@@ -5,13 +5,13 @@ by Yvairel.
 MIT licensed. LibStub API family: `LibYvSkins-1.0`, implementation MINOR `1`.
 No release has been tagged yet.
 
-This development snapshot implements Modern windows, controls, icon surfaces,
-list accents, and pixel primitives. YvBags is the first native consumer: it
-builds on library-created frames, not existing-window adapters. Modern/Flat
-selection and the optional EllesmereUI provider remain subsequent phases.
-There is no skin preference, SavedVariables, inventory logic, or third-party
-styling in this snapshot. The YvBags Modern integration has passed the user's
-in-game visual and interaction review; broader release validation remains.
+This development snapshot implements live Modern/Flat selection, windows,
+controls, icon surfaces, list accents, and pixel primitives. YvBags is the first
+native consumer: it builds on library-created frames, not existing-window
+adapters. The optional EllesmereUI provider remains a subsequent phase.
+Consumers own preference storage; the library owns no SavedVariables, inventory
+logic, or third-party styling. YvBags' Modern integration has passed in-game
+review; Flat visual/interaction approval and broader release validation remain.
 
 ## Embedding
 
@@ -43,6 +43,7 @@ local context = Skins:CreateContext("MyAddon", {
 local window = context:CreateWindow(UIParent, {
     name = "MyAddonWindow", title = "My Addon",
     minWidth = 420, minHeight = 360, maxWidth = 1000,
+    compactHeader = true, -- opt into the compact Flat toolbar
     onMoveStopped = function(frame)
         -- Save the ordinary frame's point/size through the addon's own DB.
     end,
@@ -60,7 +61,7 @@ and unpositioned. `minWidth` and `minHeight` are required positive numbers;
 optional maxima must be at least their matching minima. `name`, `title`,
 `portrait`, `insetBackground`, and `strata` customize presentation; the default
 strata is `HIGH`, and the default tiled inset is Blizzard's Midnight background.
-The original outer background remains intact.
+Modern retains the original outer background; Flat uses a neutral solid surface.
 
 The constructor owns these public frame parts and their outer anchors:
 
@@ -84,6 +85,52 @@ registered strokes. `context:GetWindowChromeWidth()` returns the horizontal
 content overhead for consumer size constraints without duplicating inset
 constants. Do not reposition the library's slots from addon refresh handlers.
 There is no `RegisterWindow` or arbitrary existing-window skinning API.
+
+## Skin Selection And Compact Headers
+
+`context:RequestSkin("modern" / "flat")` records the latest request and
+coalesces its application onto the next frame. `GetAppliedSkin()` reports the
+active renderer. `GetSkinStatus()` returns requested ID, applied ID, and an
+optional pending reason: `queued`, `combat`, `interaction`, or `unavailable`.
+Requesting the applied skin cancels a pending change. Persistence belongs to
+the addon, not this library, and independent contexts can choose different skins.
+
+Transitions wait for combat to end or library-window moving/resizing and
+supported popup drags to finish. End notifications retry once; there is no
+polling loop. An inactive popup closes before applying. Legacy popup contracts
+reject Flat before changing any component, leaving Modern applied.
+
+`SetSkinCallbacks({ beforeApply = fn, onApplied = fn, onStatusChanged = fn })`
+registers consumer hooks, each receiving the context. Use `beforeApply` to
+cancel column gestures and prewarm any additional native viewport rows after
+window size changes; count active rows toward that budget. Use `onApplied`
+for presentation-only resize constraints and `onStatusChanged` for Settings
+status. Never rebuild inventory/providers or commit geometry just to reskin.
+
+With `compactHeader = true`, Flat hides the native portrait/title art and uses
+a 36-unit header, 28-unit controls, 2-unit gaps, 8-unit side padding, and a
+96-unit minimum search width. The existing close button joins the header;
+an underlying drag region leaves controls interactive. Outer size, position,
+footer height, and native input scripts remain unchanged. Modern restores the
+original chrome. Layout is opt-in: Flat without `compactHeader` retains the
+original title/header geometry.
+
+After constructing toolbar controls, call
+`SetHeaderControls(window, { settingsButton, scaleButton, ... }, searchBox)`.
+The library lays out shown controls in order and gives search the remaining
+space. Call `LayoutHeader(window)` after changing tab visibility or measured
+widths. `GetWindowMinimumWidth(window)` combines those widths, search space,
+and chrome with the constructor minimum; apply it to native resize bounds.
+`GetWindowContentReserve(window)` reports the additional viewport height to
+reserve while prewarming Modern rows for a later compact switch.
+
+Flat surfaces use preallocated, screen-snapped, nonoverlapping one-physical-
+pixel edges. Icon borders use two physical pixels inside the icon bounds;
+`borderOutset` remains a Modern textured-border setting. Focus and selected
+states use the context accent, with neutral hover/pressed/disabled states.
+Semantic text/icon colors, input values, focus, checked/expanded state, and
+hidden pool members survive round trips. Flat controls/icons can receive an
+optional same-scale `clip` region for pixel-snapped viewport clipping.
 
 ## Native Controls And Visual Handles
 
@@ -166,7 +213,7 @@ button hover/press changes use state-only rendering without font/atlas writes.
 Pooled hidden components stay hidden. The library has no per-frame update loop.
 
 `Components/` owns construction, declared visual parts, and state handles;
-`Skins/Modern.lua` owns generic art and its rendering. The window factory also
+`Skins/Modern.lua` and `Skins/Flat.lua` own generic art and rendering. The window factory also
 registers its own native close/resize art for presentation refresh, retaining
 Blizzard's input scripts. Consumers supply semantic media and native behavior,
 not frame-tree discovery maps or competing hover/selected atlas writers.
@@ -183,8 +230,8 @@ the current drag ends.
 When LibPopupSlider is absent, the factory returns nil. If an older embed lacks
 the presentation APIs, it returns the original working Modern popup, a nil
 handle, and a reason. `context:GetPopupSliderSupport()` returns false and that
-reason after encountering such a popup. Future skin selection must reject an
-incomplete transition rather than leaving that popup partially styled. An old
+reason after encountering such a popup. Flat selection rejects an incomplete
+transition rather than leaving that popup partially styled. An old
 equal-MINOR embed may win during development; verify the loaded implementation
 when testing, and publish the owned popup API before releasing skins that rely
 on it. The adapter never accesses undocumented popup fields.
@@ -225,7 +272,9 @@ expansion automatically or rebuilds content: the consumer remains authoritative.
 For pooled rows, clear the text and reset expansion, and use
 `appearance:SetShown(false)` / `SetShown(true)` on reset/render. Hiding clears
 hover and pressed feedback. Controls and hooks are allocated once; parent
-anchors and visibility handle scrolling without per-row pixel refreshes.
+anchors and visibility handle Modern scrolling without per-row pixel refreshes.
+Flat headers/icons need `handle:RefreshGeometry()` after visible-row placement
+so their physical borders remain aligned at fractional scroll origins.
 Context token changes recolor labels without changing layout or other addons.
 
 ## Separators
@@ -324,7 +373,8 @@ It covers independent consumers/scales, both axes, fractional/negative origins,
 clipping, borders, pooled state, window constructors/slots/lifecycle, icon-free
 accordion layout, button/tab/checkbox/search states, semantic icon colors,
 scrollbar and popup boundaries, raw control access, display coalescing,
-allocation-free refreshes, and old-first/new-first/equal-MINOR module loading.
+allocation-free refreshes, Modern/Flat round trips, compact header geometry,
+combat/drag deferral and cancellation, and old-first/new-first/equal-MINOR loading.
 Simulated MINORs are applied in memory; source version numbers are not edited.
 
 `examples/PixelHarness.lua` is a development-only in-game visual fixture with

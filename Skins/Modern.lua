@@ -28,6 +28,7 @@ function Modern.PopupSlider(handle)
 end
 
 function Modern.NativeButton(handle)
+    handle.parts.icon:Hide()
     for _, state in ipairs(handle.parts.states) do
         local texture = state.region
         handle.target[state.setter](handle.target, texture)
@@ -42,6 +43,11 @@ end
 function Modern.ExpandableHeader(handle)
     local header, parts = handle.target, handle.parts
     local enabled = header:IsEnabled()
+    parts.normal:SetAlpha(1)
+    parts.pressed:SetAlpha(1)
+    parts.disabled:SetAlpha(1)
+    parts.arrow:SetDesaturated(false)
+    parts.arrow:SetVertexColor(1, 1, 1, 1)
     parts.normal:SetAtlas(enabled and handle.hovered and "common-button-tertiary-hover" or "common-button-tertiary-normal", false)
     parts.pressed:SetAtlas("common-button-tertiary-pressed", false)
     parts.disabled:SetAtlas("common-button-tertiary-disabled", false)
@@ -56,6 +62,7 @@ end
 
 function Modern.Window(handle)
     local frame = handle.target
+    for index, region in ipairs(handle.parts.chrome) do region:SetAlpha(handle.chromeAlpha[index]) end
     frame.TopTileStreaks:Hide()
     frame.TopTileStreaks:SetAlpha(0)
     frame.Inset.Bg:SetTexture(handle.insetBackground, "REPEAT", "REPEAT")
@@ -65,10 +72,17 @@ end
 
 function Modern.ScrollBar(handle)
     local parts = handle.parts
+    for _, region in ipairs({ parts.track.Begin, parts.track.Middle, parts.track.End,
+        parts.thumb.Begin, parts.thumb.Middle, parts.thumb.End }) do region:SetAlpha(1) end
+    for _, button in ipairs({ parts.back, parts.forward }) do
+        button.Texture:SetRotation(0)
+        button.Texture:SetVertexColor(1, 1, 1, 1)
+    end
     parts.track.Begin:SetAtlas("minimal-scrollbar-track-top", true)
     parts.track.Middle:SetAtlas("!minimal-scrollbar-track-middle", true)
     parts.track.End:SetAtlas("minimal-scrollbar-track-bottom", true)
     MinimalScrollBarThumbScriptsMixin.OnButtonStateChanged(parts.thumb)
+    MinimalScrollBarThumbScriptsMixin.OnSizeChanged(parts.thumb, parts.thumb:GetSize())
     MinimalScrollBarStepperScriptsMixin.OnButtonStateChanged(parts.back)
     MinimalScrollBarStepperScriptsMixin.OnButtonStateChanged(parts.forward)
 end
@@ -94,6 +108,10 @@ function Modern.Button(handle)
     local button, parts = handle.target, handle.parts
     local atlases = BUTTON_ATLASES[handle.variant]
     local selected = handle.selected
+    parts.normal:SetAlpha(1)
+    parts.hover:SetAlpha(1)
+    parts.pressed:SetAlpha(1)
+    parts.disabled:SetAlpha(1)
     if handle.fontObject then
         parts.label:SetFontObject(handle.fontObject)
     elseif handle.font then
@@ -112,6 +130,13 @@ function Modern.Button(handle)
         parts.disabledChecked:SetAtlas("common-icon-checkmark-yellow", true)
         parts.disabledChecked:SetDesaturated(true)
         parts.disabledChecked:SetVertexColor(0.5, 0.5, 0.5)
+        parts.checked:SetDesaturated(false)
+        parts.checked:SetVertexColor(1, 1, 1, 1)
+        for _, checkmark in ipairs({ parts.checked, parts.disabledChecked }) do
+            checkmark:ClearAllPoints()
+            checkmark:SetPoint("CENTER", button, "CENTER", 2, 2)
+            checkmark:SetScale(handle.checkmarkScale)
+        end
     end
     button:SetAlpha(handle.alpha)
     Modern.ButtonState(handle)
@@ -167,12 +192,14 @@ function Modern.Text(handle)
 end
 
 function Modern.Icon(handle)
+    handle.parts.flatBorder:Hide()
     handle.parts.border:SetTexture(handle.borderTexture)
     if handle.alphaOwned then handle.target:SetAlpha(handle.alpha) end
     Modern.IconColor(handle)
     if handle.crop then
         handle.target:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     end
+    Modern.IconLayout(handle)
 end
 
 function Modern.IconColor(handle)
@@ -196,6 +223,7 @@ function Modern.EditBox(handle)
     local editBox, parts = handle.target, handle.parts
     if handle.alphaOwned then editBox:SetAlpha(handle.alpha) end
     parts.background:SetAtlas("common-button-tertiary-depressed-normal", false)
+    parts.background:SetAlpha(1)
     if parts.focus then
         parts.focus:SetAtlas("common-button-tertiary-depressed-normal-glow", false)
         parts.focus:SetShown(editBox:HasFocus() and editBox:IsEnabled())
@@ -222,6 +250,7 @@ function Modern.GlowBorder(handle)
         edge:SetBlendMode("ADD")
         edge:SetDesaturated(true)
         edge:SetVertexColor(r, g, b, a * handle.alpha)
+        edge:Show()
     end
 end
 

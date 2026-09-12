@@ -139,6 +139,16 @@ function Pixel.LayoutLine(texture, bounds, metrics, options)
     return DrawRect(texture, bounds, metrics, left, bottom, right, top, originX, originY, options.clip)
 end
 
+function Pixel.LayoutFill(texture, bounds, metrics, inset, clip)
+    local left, bottom, right, top, x, y = InnerRect(bounds, metrics)
+    if not left then
+        texture:Hide()
+        return
+    end
+    inset = inset or 0
+    DrawRect(texture, bounds, metrics, left + inset, bottom + inset, right - inset, top - inset, x, y, clip)
+end
+
 function Border:SetColor(r, g, b, a)
     for index = 1, 4 do
         self.edges[index]:SetVertexColor(r, g, b, a or 1)

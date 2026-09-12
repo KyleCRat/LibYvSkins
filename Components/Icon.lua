@@ -30,6 +30,8 @@ function definition.Initialize(handle, options)
     handle.parts.border = handle.target:GetParent():CreateTexture(
         nil, options.borderLayer or "OVERLAY", nil, options.borderSublevel or 0
     )
+    handle.parts.flatBorder = lib.Pixel.CreateBorder(handle.target:GetParent(), handle.target, "OVERLAY", 1)
+    handle.target:GetParent():HookScript("OnShow", function() handle:RefreshGeometry() end)
 end
 
 function definition.ApplyAppearance(handle)
@@ -38,6 +40,7 @@ end
 
 function definition.OnUnregister(handle)
     handle.parts.border:Hide()
+    handle.parts.flatBorder:Hide()
 end
 
 function definition.Layout(handle)
