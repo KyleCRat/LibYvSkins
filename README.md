@@ -10,7 +10,8 @@ list accents, and pixel primitives. YvBags is the first native consumer: it
 builds on library-created frames, not existing-window adapters. Modern/Flat
 selection and the optional EllesmereUI provider remain subsequent phases.
 There is no skin preference, SavedVariables, inventory logic, or third-party
-styling in this snapshot. The expanded Modern integration awaits in-game review.
+styling in this snapshot. The YvBags Modern integration has passed the user's
+in-game visual and interaction review; broader release validation remains.
 
 ## Embedding
 
