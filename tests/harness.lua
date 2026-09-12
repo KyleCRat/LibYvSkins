@@ -12,6 +12,7 @@ function Harness.New()
     local env = setmetatable({}, { __index = _G })
     env._G = env
     env.strmatch = string.match
+    env.GameFontNormalLarge = {}
     env.LibStub = nil
     local stub = assert(loadstring(Read("tests/fixtures/LibStub.lua"), "@LibStub.lua"))
     setfenv(stub, env)()
@@ -58,6 +59,36 @@ function Harness.New()
     function Region:SetTexelSnappingBias(value) self.bias = value end
     function Region:SetAlpha(value) self.alpha = value end
     function Region:SetTexture(...) self.texture = { ... } end
+    function Region:SetAtlas(atlas, useAtlasSize) self.atlas, self.useAtlasSize = atlas, useAtlasSize end
+    function Region:SetRotation(value) self.rotation = value end
+    function Region:SetFont(...) self.font = { ... } end
+    function Region:SetFontObject(value) self.fontObject = value end
+    function Region:SetTextColor(...) self.textColor = { ... } end
+    function Region:SetJustifyH(value) self.justifyH = value end
+    function Region:SetJustifyV(value) self.justifyV = value end
+    function Region:SetWordWrap(value) self.wordWrap = value end
+    function Region:SetMaxLines(value) self.maxLines = value end
+    function Region:SetFontString(value) self.fontString = value end
+    function Region:GetFontString() return self.fontString end
+    function Region:SetText(value)
+        if self.fontString then self.fontString:SetText(value) else self.text = value end
+    end
+    function Region:GetText() return self.fontString and self.fontString:GetText() or self.text end
+    function Region:SetNormalTexture(value) self.normalTexture = value end
+    function Region:GetNormalTexture() return self.normalTexture end
+    function Region:SetPushedTexture(value) self.pushedTexture = value end
+    function Region:GetPushedTexture() return self.pushedTexture end
+    function Region:SetDisabledTexture(value) self.disabledTexture = value end
+    function Region:GetDisabledTexture() return self.disabledTexture end
+    function Region:SetButtonState(value) self.buttonState = value end
+    function Region:GetButtonState() return self.buttonState or "NORMAL" end
+    function Region:IsEnabled() return self.enabled ~= false end
+    function Region:SetEnabled(value)
+        local changed = self:IsEnabled() ~= value
+        self.enabled = value
+        if changed then self:RunScript(value and "OnEnable" or "OnDisable") end
+    end
+    function Region:RegisterForClicks(...) self.clickButtons = { ... } end
     function Region:SetHorizTile(value) self.horizTile = value end
     function Region:SetVertTile(value) self.vertTile = value end
     function Region:ClearAllPoints() self.points = nil end
@@ -109,6 +140,10 @@ function Harness.New()
     function Region:CreateTexture(_, layer, _, sublevel)
         state.regions = state.regions + 1
         return setmetatable({ parent = self, layer = layer, sublevel = sublevel }, Region)
+    end
+    function Region:CreateFontString(_, layer)
+        state.regions = state.regions + 1
+        return setmetatable({ parent = self, layer = layer, frameType = "FontString" }, Region)
     end
     function Region:RegisterEvent(event) self.events[event] = true end
     function Region:SetScript(script, callback) self.scripts[script] = callback end

@@ -4,4 +4,5 @@
     <Script file="Context.lua"/>
     <Script file="Window.lua"/>
     <Script file="Components\Separator.lua"/>
+    <Script file="Components\ExpandableHeader.lua"/>
 </Ui>

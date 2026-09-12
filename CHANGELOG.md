@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### Added
+- Added a Modern expandable-header constructor matching LMS's full-width
+  tertiary bar and right-side state arrow, without a leading icon slot or
+  divider. Raw text/click/enabled APIs remain accessible; appearance handles
+  own expansion visuals, context recoloring, and pooled hover/pressed cleanup.
 - Added a canonical Modern window constructor with raw header/content/footer
   parts, native close/resize controls, move/resize callbacks, and window-owned
   pixel refreshes. Consumers build directly on the library's frame structure.

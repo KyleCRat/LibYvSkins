@@ -70,6 +70,11 @@ function definition.Layout(handle)
     lib.Pixel.LayoutLine(handle.target, handle.parts.bounds, handle.root.metrics, handle.geometry)
 end
 
+function definition.ApplyAppearance(handle)
+    local r, g, b, a = handle.context:GetColor(handle.colorToken)
+    handle.target:SetVertexColor(r, g, b, a * handle.alpha)
+end
+
 function lib._contextPrototype:CreateSeparator(parent, options)
     options = options or {}
     assert(parent and type(parent.CreateTexture) == "function", "separator parent must create textures")

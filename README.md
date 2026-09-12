@@ -6,8 +6,9 @@ MIT licensed. LibStub API family: `LibYvSkins-1.0`, implementation MINOR `1`.
 No release has been tagged yet.
 
 This development snapshot implements the canonical Modern window constructor,
-pixel foundation, and separator factory. YvBags is the first native consumer:
-it builds on library-created frames, not existing-window adapters. The remaining
+pixel foundation, separator factory, and expandable headers. YvBags is the
+first native consumer: it builds on library-created frames, not existing-window
+adapters. The remaining
 control factories, Modern/Flat selection, and optional EllesmereUI provider are
 subsequent phases. There is no skin preference, SavedVariables, inventory logic,
 or third-party styling in this snapshot.
@@ -82,6 +83,45 @@ content overhead for consumer size constraints without duplicating inset
 constants. Do not reposition the library's slots from addon refresh handlers.
 There is no `RegisterWindow` or arbitrary existing-window skinning API.
 
+## Expandable Headers
+
+`context:CreateExpandableHeader(parent, options)` returns an ordinary Button
+and its appearance handle. The Modern bar matches LMS's tertiary accordion
+style, with a right-aligned yellow arrow: down when collapsed, up when expanded.
+There is no leading icon slot, reserved icon spacing, or separate divider.
+
+```lua
+local expanded = true
+local header, appearance = context:CreateExpandableHeader(window.content, {
+    geometryRoot = window, width = 400, height = 31,
+    text = "Consumables (2)", expanded = expanded,
+})
+header:SetPoint("TOPLEFT", window.content, "TOPLEFT", 0, 0)
+header:SetScript("OnClick", function()
+    expanded = not expanded
+    appearance:SetExpanded(expanded)
+    -- The consumer shows/hides its content or updates its list model here.
+end)
+```
+
+Options include `text`, `expanded` (default true), `width` / `height` (100 / 34
+UI units), optional `font` path with `fontSize` (18), `colorToken` (`accent`),
+`alpha`, and optional `onClick(button, mouseButton)`. Without a custom font,
+the label uses `GameFontNormalLarge`. Text starts at the ordinary 12-unit
+button inset, without an icon or its gap. The caller owns the button's anchors.
+
+Use native `SetText`, `GetText`, `GetFontString`, `SetEnabled`, and `SetScript`
+directly. Visual hooks preserve consumer scripts, and native Button textures
+own pressed/disabled rendering. `appearance:SetExpanded(boolean)` updates
+only the arrow; `IsExpanded()` reads that visual state. A click never changes
+expansion automatically or rebuilds content: the consumer remains authoritative.
+
+For pooled rows, clear the text and reset expansion, and use
+`appearance:SetShown(false)` / `SetShown(true)` on reset/render. Hiding clears
+hover and pressed feedback. Controls and hooks are allocated once; parent
+anchors and visibility handle scrolling without per-row pixel refreshes.
+Context token changes recolor labels without changing layout or other addons.
+
 ## Separators
 
 ```lua
@@ -111,14 +151,15 @@ subtrees. Pixel refreshes draw only custom regions, never move/resize a root.
 | --- | --- |
 | `context:CreateWindow(parent, options)` | Create a canonical Modern shell with directly accessible frame parts. |
 | `context:CreateSeparator(parent, options)` | Create and register a texture together; return the Texture and handle. |
-| `context:RegisterComponent(role, target, parts, options)` | Low-level constructor backend and explicit external visual extension point, not the primary consumer path. Repeating identical ownership returns its handle without reapplying options. Only `separator` is implemented so far. |
+| `context:CreateExpandableHeader(parent, options)` | Create an icon-free Modern accordion Button and its expansion appearance handle. |
+| `context:RegisterComponent(role, target, parts, options)` | Low-level constructor backend and explicit external visual extension point, not the primary consumer path. Repeating identical ownership returns its handle without reapplying options. Implemented roles: `separator`, `expandableHeader`. |
 | `context:UnregisterComponent(target)` | Hide the owned visual and remove tracking; repeated unregister is harmless. Does not destroy WoW textures or restore external styling. |
 | `context:GetColor(token)` | Return `r, g, b, a` without exposing the stored color table. |
 | `context:SetTokens(colors)` | Merge copied named colors and refresh registered visuals, without changing geometry. |
 | `context:RefreshGeometry(root)` | After parent layout, refresh that root's cached scale and registered custom geometry. Omit the root to refresh the context. Hidden visuals remain hidden. |
 | `handle:RefreshGeometry()` | Realign only this stroke using cached root metrics, suitable for visible-row scroll/layout callbacks. |
-| `handle:RefreshAppearance()` | Reapply its color token and opacity. |
-| `handle:SetAlpha(alpha)` | Set stroke opacity, including hover/pressed feedback, without changing its color meaning. |
+| `handle:RefreshAppearance()` | Reapply role-owned art, state, color tokens, and opacity without changing layout. |
+| `handle:SetAlpha(alpha)` | Set visual opacity without changing its color meaning. |
 | `handle:SetShown(boolean)` | Set logical visibility; reset pooled rows to false and restore to true on render. |
 
 `orientation` is `horizontal` (default) or `vertical`. `align` is `start`,
@@ -173,8 +214,9 @@ The suite loads runtime files in `embed.xml` order and includes its own
 public-domain LibStub fixture. It does not depend on a sibling addon checkout.
 It covers independent consumers/scales, both axes, fractional/negative origins,
 1080p/1440p/4K physical conversion, connected strokes, physical insets,
-clipping, borders, pooled state, window constructors/slots/lifecycle, raw control
-access, display coalescing, and old-first/new-first/equal-MINOR module loading.
+clipping, borders, pooled state, window constructors/slots/lifecycle, icon-free
+accordion layout and native states, raw control access, display coalescing,
+and old-first/new-first/equal-MINOR module loading.
 Simulated MINORs are applied in memory; source version numbers are not edited.
 
 `examples/PixelHarness.lua` is a development-only in-game visual fixture with

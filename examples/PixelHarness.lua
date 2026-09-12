@@ -11,6 +11,16 @@ local function CreateFixture(name, color, offset, scale)
     local text = panel.content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     text:SetPoint("TOP", 0, -8)
     text:SetText(name .. " - 1px line / 2px border")
+    local expanded = true
+    local header, appearance = context:CreateExpandableHeader(panel.content, {
+        geometryRoot = panel, height = 31, text = "Accordion preview", expanded = expanded,
+    })
+    header:SetPoint("TOPLEFT", panel.content, "TOPLEFT", 8, -28)
+    header:SetPoint("TOPRIGHT", panel.content, "TOPRIGHT", -8, -28)
+    header:SetScript("OnClick", function()
+        expanded = not expanded
+        appearance:SetExpanded(expanded)
+    end)
     context:CreateSeparator(panel.content, { geometryRoot = panel, left = 8, right = 8 })
     local border = Skins.Pixel.CreateBorder(panel.content, panel.content)
     border:SetColor(color.r, color.g, color.b)

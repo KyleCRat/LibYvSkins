@@ -143,8 +143,7 @@ function Handle:RefreshAppearance()
     if self.registered == false then
         return
     end
-    local r, g, b, a = self.context:GetColor(self.colorToken)
-    self.target:SetVertexColor(r, g, b, a * self.alpha)
+    lib._roles[self.role].ApplyAppearance(self)
     self.appearanceRevision = self.context.appearanceRevision
 end
 
