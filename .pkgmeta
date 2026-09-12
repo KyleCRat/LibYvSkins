@@ -1,0 +1,10 @@
+package-as: LibYvSkins-1.0
+
+manual-changelog:
+    filename: CHANGELOG.md
+    markup-type: markdown
+
+ignore:
+    - AGENTS.md
+    - tests
+    - examples

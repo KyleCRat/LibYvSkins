@@ -1,0 +1,7 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+    <Script file="LibYvSkins-1.0.lua"/>
+    <Script file="Pixel.lua"/>
+    <Script file="Context.lua"/>
+    <Script file="Window.lua"/>
+    <Script file="Components\Separator.lua"/>
+</Ui>
