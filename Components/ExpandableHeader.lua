@@ -122,6 +122,9 @@ function definition.Initialize(handle, options)
 end
 
 function definition.ApplyAppearance(handle)
+    local r, g, b, a = handle.context:GetColor(handle.colorToken)
+    handle.parts.label:SetTextColor(r, g, b, handle.target:IsEnabled() and a or a * 0.5)
+    handle.target:SetAlpha(handle.alpha)
     handle.context:_GetRenderer().ExpandableHeader(handle)
 end
 

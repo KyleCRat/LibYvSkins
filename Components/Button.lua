@@ -89,7 +89,25 @@ function definition.Initialize(handle, options)
     lib._HookButtonState(handle)
 end
 
+local function ApplyCheckmarkArtwork(texture, scale)
+    texture:SetAtlas("common-icon-checkmark-yellow", true)
+    texture:ClearAllPoints()
+    texture:SetScale(scale)
+end
+
 function definition.ApplyAppearance(handle)
+    local parts = handle.parts
+    if handle.fontObject then
+        parts.label:SetFontObject(handle.fontObject)
+    elseif handle.font then
+        parts.label:SetFont(handle.font, handle.fontSize, handle.fontFlags)
+    end
+    handle.target:SetAlpha(handle.alpha)
+    if parts.checked then
+        -- Both skins retain native checked artwork; each owns its tint/anchor.
+        ApplyCheckmarkArtwork(parts.checked, handle.checkmarkScale)
+        ApplyCheckmarkArtwork(parts.disabledChecked, handle.checkmarkScale)
+    end
     handle.context:_GetRenderer().Button(handle)
 end
 
@@ -107,7 +125,14 @@ end
 
 function Button:RefreshState()
     if self.registered ~= false then
-        self.context:_GetRenderer().ButtonState(self)
+        local icon = self.parts.icon
+        if icon then
+            local enabled = self.target:IsEnabled()
+            icon:SetAlpha(enabled and (self.hovered and 1 or self.iconAlpha) or self.disabledIconAlpha)
+        end
+        local renderer = self.context:_GetRenderer()
+        renderer.ButtonState(self)
+        renderer.ButtonIconLayout(self)
     end
 end
 

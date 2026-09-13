@@ -1070,6 +1070,90 @@ Test("region factories preserve requested bounds and separate semantic colors fr
     H.Equal(text.textColor[3], 0.9)
 end)
 
+Test("each renderer constructs and refreshes controls without invoking or aliasing another skin", function()
+    for _, skin in ipairs({ "modern", "flat" }) do
+        local state = H.New()
+        local lib = state:Load()
+        local context = lib:CreateContext("IndependentRenderer", {
+            font = "test-font", iconBorder = "test-border",
+            tokens = { accent = { r = 0.1, g = 0.8, b = 0.9 } },
+        })
+        context:RequestSkin(skin)
+        state:Flush()
+        local renderer = lib._skins[skin]
+        local other = lib._skins[skin == "modern" and "flat" or "modern"]
+        for method, implementation in pairs(other) do
+            H.Equal(renderer[method] == implementation, false, "renderers must not alias sibling methods")
+            other[method] = function() error("inactive skin renderer was invoked") end
+        end
+
+        -- Construct directly in the selected skin, without another renderer
+        -- first supplying its fonts, opacity, artwork, or visual state.
+        local parent = state:Region(0, 0, 800, 600, 1)
+        local window = context:CreateWindow(parent, { minWidth = 400, minHeight = 300, compactHeader = true })
+        window:SetPoint("CENTER", parent, "CENTER", 0, 0)
+        local button, buttonHandle = context:CreateButton(window.header, {
+            geometryRoot = window, variant = "square", icon = lib:GetIconTexture("plus"), alpha = 0.7,
+        })
+        local search = context:CreateSearchBox(window.header, { geometryRoot = window, alpha = 0.6 })
+        context:SetHeaderControls(window, { button }, search)
+        local check, checkHandle = context:CreateCheckbox(window.footer, { geometryRoot = window })
+        local edit = context:CreateEditBox(window.content, { geometryRoot = window })
+        local header, headerHandle = context:CreateExpandableHeader(window.content, { geometryRoot = window, alpha = 0.8 })
+        local tab, tabHandle = context:CreateTab(window.content, { geometryRoot = window, text = "Tab" })
+        local icon = context:CreateIcon(window.content, { geometryRoot = window })
+        icon:SetTexture("item-art")
+        icon:SetVertexColor(0.2, 0.3, 0.4, 1)
+        local text = context:CreateText(window.content, { geometryRoot = window, text = "Label" })
+        local texture = context:CreateTexture(window.content, { geometryRoot = window, colorToken = "accent" })
+        context:CreateScrollBar(window.content, { geometryRoot = window })
+        context:CreateGlowBorder(window.content, { geometryRoot = window })
+        window:Show()
+        check:SetChecked(true)
+        edit:SetText("keep me")
+        edit:SetFocus()
+        search:SetText("search")
+        tabHandle:SetSelected(true)
+        headerHandle:SetExpanded(false)
+        context:RefreshAppearance()
+        context:RefreshGeometry(window)
+        window.CloseButton:RunScript("OnEnter")
+        window.resizeButton:RunScript("OnEnter")
+
+        H.Equal(buttonHandle.parts.label.font[1], "test-font")
+        H.Equal(search.font[1], "test-font")
+        H.Equal(search.Instructions.font[1], "test-font")
+        H.Equal(edit.font[1], "test-font")
+        H.Equal(text.font[1], "test-font")
+        H.Near(button:GetAlpha(), 0.7)
+        H.Near(search:GetAlpha(), 0.6)
+        H.Near(header:GetAlpha(), 0.8)
+        H.Equal(check:GetChecked(), true)
+        H.Equal(checkHandle.parts.checked:GetAtlas(), "common-icon-checkmark-yellow")
+        H.Equal(edit:GetText(), "keep me")
+        H.Equal(edit:HasFocus(), true)
+        H.Equal(search:GetText(), "search")
+        H.Equal(tab:GetText(), "Tab")
+        H.Equal(headerHandle:IsExpanded(), false)
+        H.Near(headerHandle.parts.label.textColor[1], 0.1)
+        H.Near(texture.colorTexture[1], 0.1)
+        H.Near(icon.color[1], 0.2)
+        H.Equal(buttonHandle.parts.normal:GetAtlas(), skin == "modern" and "common-button-tertiary-square-normal" or nil)
+
+        local fonts, atlases, regions, hooks = state.fontWrites, state.atlasWrites, state.regions, state.hooks
+        button:RunScript("OnEnter")
+        button:RunScript("OnMouseDown", "LeftButton")
+        button:RunScript("OnMouseUp", "LeftButton")
+        button:RunScript("OnLeave")
+        button:SetEnabled(false)
+        H.Equal(buttonHandle.parts.icon:GetAlpha(), 0.5)
+        H.Equal(state.fontWrites, fonts)
+        H.Equal(state.atlasWrites, atlases)
+        H.Equal(state.regions, regions)
+        H.Equal(state.hooks, hooks)
+    end
+end)
+
 Test("Flat selection is coalesced, context-local, combat deferred, and cancellable", function()
     local state = H.New()
     local lib = state:Load()

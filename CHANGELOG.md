@@ -42,6 +42,14 @@
 - Added Lua 5.1 constructor/lifecycle, contract, pixel-geometry, pooling,
   context-isolation, and mixed/equal-MINOR load-order tests.
 
+### Changed
+- Decoupled Modern and Flat rendering. Shared component setup owns fonts,
+  opacity, native checkmark artwork, and plain-region styling; each skin
+  paints its own appearance without invoking or aliasing another renderer.
+  Preserved existing visuals, input state, and lightweight button-state updates.
+- Added renderer-isolation coverage for cold construction and refresh with
+  every inactive-skin renderer method disabled.
+
 ### Fixed
 - Raised Modern tertiary-square button glyphs by one physical pixel to balance
   the atlas's bottom-heavy border, without changing Flat or press feedback.

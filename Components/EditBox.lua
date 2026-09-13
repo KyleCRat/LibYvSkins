@@ -49,6 +49,14 @@ function definition.Initialize(handle, options)
 end
 
 function definition.ApplyAppearance(handle)
+    local editBox, parts = handle.target, handle.parts
+    if handle.alphaOwned then editBox:SetAlpha(handle.alpha) end
+    if handle.font then
+        editBox:SetFont(handle.font, handle.fontSize, handle.fontFlags)
+        if parts.instructions then
+            parts.instructions:SetFont(handle.font, handle.fontSize, handle.fontFlags)
+        end
+    end
     handle.context:_GetRenderer().EditBox(handle)
 end
 

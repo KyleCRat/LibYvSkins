@@ -7,7 +7,6 @@ lib._modules.Flat = MINOR
 
 local Flat = lib._skins.flat or {}
 lib._skins.flat = Flat
-local Modern = lib._skins.modern
 local TEXT_OFFSET_Y = -1
 local SCROLL_TRACK_INSET = 15
 local CHECKMARK_OFFSET_PIXELS = 1
@@ -35,7 +34,6 @@ local function HideButtonArt(parts)
 end
 
 function Flat.Button(handle)
-    Modern.Button(handle)
     HideButtonArt(handle.parts)
     handle.parts.label:ClearAllPoints()
     handle.parts.label:SetPoint("CENTER", handle.target, "CENTER", 0, handle.labelOffsetY + TEXT_OFFSET_Y * 2)
@@ -43,21 +41,28 @@ function Flat.Button(handle)
         -- Keep Blizzard's checkmark dimensions; its optical offset is separate.
         handle.parts.checked:SetDesaturated(true)
         handle.parts.checked:SetVertexColor(handle.context:GetColor(handle.colorToken))
+        handle.parts.disabledChecked:SetDesaturated(true)
+        handle.parts.disabledChecked:SetVertexColor(0.5, 0.5, 0.5)
     end
-    Flat.ButtonState(handle)
+    handle:RefreshState()
 end
 
 function Flat.ButtonState(handle)
-    Modern.ButtonState(handle)
+    local enabled = handle.target:IsEnabled()
     State(handle, handle.parts.surface)
-    if handle.parts.icon and not handle.preserveIconColor then
-        handle.parts.icon:SetDesaturated(true)
-        handle.parts.icon:SetVertexColor(handle.context:GetColor(handle.colorToken))
+    local icon = handle.parts.icon
+    if icon then
+        icon:SetDesaturated(not enabled or not handle.preserveIconColor)
+        if handle.preserveIconColor then
+            icon:SetVertexColor(1, 1, 1, 1)
+        else
+            icon:SetVertexColor(handle.context:GetColor(handle.colorToken))
+        end
     end
-    if handle.target:IsEnabled() and handle.selected then
+    if enabled and handle.selected then
         handle.parts.label:SetTextColor(handle.context:GetColor(handle.colorToken))
     else
-        local c = handle.target:IsEnabled() and 0.92 or 0.5
+        local c = enabled and 0.92 or 0.5
         handle.parts.label:SetTextColor(c, c, c, 1)
     end
 end
@@ -75,7 +80,6 @@ function Flat.ButtonIconLayout(handle)
 end
 
 function Flat.EditBox(handle)
-    Modern.EditBox(handle)
     handle.parts.background:SetAlpha(0)
     if handle.parts.focus then handle.parts.focus:Hide() end
     local edit = handle.target
@@ -95,7 +99,6 @@ function Flat.EditBox(handle)
 end
 
 function Flat.ExpandableHeader(handle)
-    Modern.ExpandableHeader(handle)
     HideButtonArt(handle.parts)
     State(handle, handle.parts.surface)
     handle.parts.arrow:SetTexture(handle.expanded and lib._media.caretDown or lib._media.caretUp)
@@ -148,8 +151,13 @@ function Flat.IconVisibility(handle)
 end
 
 Flat.IconLayout = Flat.IconVisibility
-Flat.Texture = Modern.Texture
-Flat.Text = Modern.Text
+function Flat.Texture(handle)
+    lib._ApplyTextureAppearance(handle)
+end
+
+function Flat.Text(handle)
+    lib._ApplyTextAppearance(handle)
+end
 
 function Flat.GlowBorder(handle)
     for _, edge in pairs(handle.parts.edges) do edge:Hide() end
@@ -186,7 +194,8 @@ function Flat.NativeButtonLayout(handle)
     if handle.kind == "close" then
         lib._LayoutCenteredIcon(handle)
     else
-        Modern.NativeButtonLayout(handle)
+        lib._RestoreIconLayout(handle)
+        handle.parts.icon:SetPoint("CENTER", handle.target, "CENTER", 0, 0)
     end
 end
 

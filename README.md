@@ -431,6 +431,16 @@ position/layout changes. For ScrollBox callbacks, refresh only visible handles
 after placement, not the entire context. The library installs no per-separator
 hooks or `OnUpdate`.
 
+## Renderer Ownership
+
+Renderers are peers: a skin must not call or alias another skin's renderer
+methods, or rely on that skin having painted a control first. Shared component
+setup owns configured fonts, opacity, and native checkmark artwork; neutral
+text/texture operations also live with their components. Each renderer owns
+its own artwork, tints, surfaces, and optical offsets. Button state refreshes
+remain separate from font/atlas setup. This keeps changes to Modern from
+silently changing Flat and gives future renderers the same independent boundary.
+
 ## Verification And Examples
 
 Run from this repository root with Lua 5.1:
@@ -450,6 +460,8 @@ allocation-free refreshes, Modern/Flat round trips, symmetric compact geometry,
 background dragging with separate action controls, text baselines, action
 colors, outside icon borders, native checkmark sizes and stepper offsets,
 combat/drag deferral and cancellation, and old-first/new-first/equal-MINOR loading.
+Renderer-isolation checks construct and exercise controls in each skin while
+every inactive renderer method throws, and reject cross-skin function aliases.
 Simulated MINORs are applied in memory; source version numbers are not edited.
 
 `examples/PixelHarness.lua` is a development-only in-game visual fixture with

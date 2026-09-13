@@ -71,9 +71,6 @@ function Modern.ExpandableHeader(handle)
     parts.arrow:SetRotation(handle.expanded and math.pi * 1.5 or math.pi * 0.5)
     parts.arrow:ClearAllPoints()
     parts.arrow:SetPoint("RIGHT", header, "RIGHT", -12, handle.expanded and 2 or -1)
-    local r, g, b, a = handle.context:GetColor(handle.colorToken)
-    parts.label:SetTextColor(r, g, b, enabled and a or a * 0.5)
-    header:SetAlpha(handle.alpha)
 end
 
 function Modern.Window(handle)
@@ -89,7 +86,7 @@ end
 function Modern.ScrollBar(handle)
     local parts = handle.parts
     if handle.layoutSkin ~= "modern" then
-        local restoreTrack = handle.layoutSkin == "flat"
+        local restoreTrack = handle.layoutSkin ~= nil
         handle.layoutSkin = "modern"
         handle:LayoutAnchor(false)
         if restoreTrack then
@@ -103,7 +100,7 @@ function Modern.ScrollBar(handle)
         button.Texture:SetRotation(0)
         button.Texture:SetVertexColor(1, 1, 1, 1)
         button.Texture:SetDesaturated(not button:IsEnabled())
-        if handle.stepperLayoutSkin == "flat" then
+        if handle.stepperLayoutSkin and handle.stepperLayoutSkin ~= "modern" then
             button.Texture:ClearAllPoints()
             for _, point in ipairs(handle.stepperPoints[button]) do button.Texture:SetPoint(unpack(point)) end
         end
@@ -145,11 +142,6 @@ function Modern.Button(handle)
     parts.hover:SetAlpha(1)
     parts.pressed:SetAlpha(1)
     parts.disabled:SetAlpha(1)
-    if handle.fontObject then
-        parts.label:SetFontObject(handle.fontObject)
-    elseif handle.font then
-        parts.label:SetFont(handle.font, handle.fontSize, handle.fontFlags)
-    end
     parts.normal:SetAtlas(selected and atlases.selected or atlases.normal, false)
     parts.hover:SetAtlas(atlases.hover, false)
     parts.pressed:SetAtlas(atlases.pressed, false)
@@ -159,20 +151,12 @@ function Modern.Button(handle)
     parts.normal:SetPoint("TOPLEFT", button, "TOPLEFT", -outset, outset)
     parts.normal:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", outset, -outset)
     if parts.checked then
-        parts.checked:SetAtlas("common-icon-checkmark-yellow", true)
-        parts.disabledChecked:SetAtlas("common-icon-checkmark-yellow", true)
         parts.disabledChecked:SetDesaturated(true)
         parts.disabledChecked:SetVertexColor(0.5, 0.5, 0.5)
         parts.checked:SetDesaturated(false)
         parts.checked:SetVertexColor(1, 1, 1, 1)
-        for _, checkmark in ipairs({ parts.checked, parts.disabledChecked }) do
-            checkmark:ClearAllPoints()
-            checkmark:SetPoint("CENTER", button, "CENTER", 2, 2)
-            checkmark:SetScale(handle.checkmarkScale)
-        end
     end
-    button:SetAlpha(handle.alpha)
-    Modern.ButtonState(handle)
+    handle:RefreshState()
 end
 
 function Modern.ButtonState(handle)
@@ -197,9 +181,7 @@ function Modern.ButtonState(handle)
             SetActionIconColor(parts.icon, enabled)
         end
         parts.icon:SetDesaturated(not enabled)
-        parts.icon:SetAlpha(enabled and (handle.hovered and 1 or handle.iconAlpha) or handle.disabledIconAlpha)
     end
-    handle.context:_GetRenderer().ButtonIconLayout(handle)
 end
 
 function Modern.ButtonIconLayout(handle)
@@ -218,28 +200,11 @@ function Modern.ButtonIconLayout(handle)
 end
 
 function Modern.Texture(handle)
-    if handle.usesColorToken then
-        local r, g, b, a = handle:GetColor()
-        if handle.isSolid then
-            handle.target:SetColorTexture(r, g, b, a * handle.alpha)
-        else
-            handle.target:SetVertexColor(r, g, b, a * handle.alpha)
-        end
-    elseif handle.alphaOwned then
-        handle.target:SetAlpha(handle.alpha)
-    end
+    lib._ApplyTextureAppearance(handle)
 end
 
 function Modern.Text(handle)
-    if handle.font then
-        handle.target:SetFont(handle.font, handle.fontSize, handle.fontFlags)
-    end
-    if handle.usesColorToken then
-        local r, g, b, a = handle:GetColor()
-        handle.target:SetTextColor(r, g, b, a * handle.alpha)
-    elseif handle.alphaOwned then
-        handle.target:SetAlpha(handle.alpha)
-    end
+    lib._ApplyTextAppearance(handle)
 end
 
 function Modern.Icon(handle)
@@ -290,18 +255,11 @@ function Modern.EditBox(handle)
         parts.clearButton.Icon:SetAtlas("common-search-clearbutton", false)
         parts.clearButton.Icon:SetVertexColor(1, 1, 1, 1)
     end
-    if handle.alphaOwned then editBox:SetAlpha(handle.alpha) end
     parts.background:SetAtlas("common-button-tertiary-depressed-normal", false)
     parts.background:SetAlpha(1)
     if parts.focus then
         parts.focus:SetAtlas("common-button-tertiary-depressed-normal-glow", false)
         parts.focus:SetShown(editBox:HasFocus() and editBox:IsEnabled())
-    end
-    if handle.font then
-        editBox:SetFont(handle.font, handle.fontSize, handle.fontFlags)
-        if parts.instructions then
-            parts.instructions:SetFont(handle.font, handle.fontSize, handle.fontFlags)
-        end
     end
 end
 

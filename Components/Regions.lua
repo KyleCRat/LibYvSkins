@@ -7,6 +7,32 @@ lib._modules.Regions = MINOR
 
 -- Semantic content/color stays on the raw region unless a context color token
 -- is explicitly requested. Appearance refresh never changes text or artwork.
+-- Renderers may share these neutral operations, never another skin's painting.
+function lib._ApplyTextureAppearance(handle)
+    if handle.usesColorToken then
+        local r, g, b, a = handle:GetColor()
+        if handle.isSolid then
+            handle.target:SetColorTexture(r, g, b, a * handle.alpha)
+        else
+            handle.target:SetVertexColor(r, g, b, a * handle.alpha)
+        end
+    elseif handle.alphaOwned then
+        handle.target:SetAlpha(handle.alpha)
+    end
+end
+
+function lib._ApplyTextAppearance(handle)
+    if handle.font then
+        handle.target:SetFont(handle.font, handle.fontSize, handle.fontFlags)
+    end
+    if handle.usesColorToken then
+        local r, g, b, a = handle:GetColor()
+        handle.target:SetTextColor(r, g, b, a * handle.alpha)
+    elseif handle.alphaOwned then
+        handle.target:SetAlpha(handle.alpha)
+    end
+end
+
 for _, role in ipairs({ "text", "texture" }) do
     local definition = lib._roles[role] or {}
     lib._roles[role] = definition
