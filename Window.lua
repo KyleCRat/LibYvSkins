@@ -13,8 +13,14 @@ local CONTENT_LEFT, CONTENT_RIGHT, CONTENT_TOP, CONTENT_BOTTOM = 3, -3, -3, 2
 local HEADER_LEFT, HEADER_RIGHT, HEADER_TOP, HEADER_HEIGHT = 58, -6, -28, 28
 local FOOTER_LEFT, FOOTER_RIGHT, FOOTER_BOTTOM, FOOTER_HEIGHT = 3, -15, 4, 28
 local RESIZE_RIGHT, RESIZE_BOTTOM = -2, 3
-local COMPACT_HEADER_HEIGHT, CONTROL_SIZE, CONTROL_GAP = 36, 28, 2
+local CONTROL_SIZE, MODERN_CONTROL_GAP = 28, 2
 local COMPACT_PADDING, SEARCH_MIN_WIDTH = 8, 96
+local COMPACT_SECTION_GAP, COMPACT_CONTENT_PADDING = 4, 2
+local COMPACT_FOOTER_HEIGHT = 24
+local COMPACT_INSET_TOP = COMPACT_PADDING + CONTROL_SIZE + COMPACT_SECTION_GAP
+local COMPACT_INSET_BOTTOM = COMPACT_PADDING + COMPACT_FOOTER_HEIGHT + COMPACT_SECTION_GAP
+local COMPACT_CONTENT_GAIN = -INSET_TOP + INSET_BOTTOM - CONTENT_TOP + CONTENT_BOTTOM
+    - COMPACT_INSET_TOP - COMPACT_INSET_BOTTOM - COMPACT_CONTENT_PADDING * 2
 local DEFAULT_INSET_BACKGROUND = "Interface\\FrameGeneral\\UIFrameMidnightBackground"
 
 local definition = lib._roles.window or {}
@@ -31,6 +37,7 @@ function definition.Initialize(handle, options)
     handle.minWidth = options.minWidth
     local frame = handle.target
     handle.parts.surface = lib._CreateSurface(handle, frame, frame)
+    handle.parts.contentSurface = lib._CreateSurface(handle, frame.Inset, frame.Inset)
     handle.parts.chrome = {
         frame.Bg, frame.NineSlice, frame.Inset.Bg, frame.Inset.NineSlice, frame.PortraitContainer,
     }
@@ -50,7 +57,10 @@ end
 function definition.Layout(handle)
 end
 
-function Context:GetWindowChromeWidth()
+function Context:GetWindowChromeWidth(frame)
+    if frame and self:IsWindowCompact(frame) then
+        return (COMPACT_PADDING + COMPACT_CONTENT_PADDING) * 2
+    end
     return INSET_LEFT - INSET_RIGHT + CONTENT_LEFT - CONTENT_RIGHT
 end
 
@@ -62,19 +72,21 @@ end
 function Context:GetWindowContentReserve(frame)
     -- Prewarm the largest viewport, even when starting with Modern chrome.
     if self._components[frame].compactHeader and not self:IsWindowCompact(frame) then
-        return -INSET_TOP - COMPACT_HEADER_HEIGHT
+        return COMPACT_CONTENT_GAIN
     end
     return 0
 end
 
 function Context:GetWindowMinimumWidth(frame)
     local handle = self._components[frame]
+    local compact = self:IsWindowCompact(frame)
+    local gap = compact and COMPACT_SECTION_GAP or MODERN_CONTROL_GAP
     local width = SEARCH_MIN_WIDTH
     for _, control in ipairs(handle.headerControls or {}) do
-        if control:IsShown() then width = width + control:GetWidth() + CONTROL_GAP end
+        if control:IsShown() then width = width + control:GetWidth() + gap end
     end
-    if self:IsWindowCompact(frame) then
-        width = width + 2 * COMPACT_PADDING + CONTROL_SIZE + CONTROL_GAP
+    if compact then
+        width = width + 2 * COMPACT_PADDING + CONTROL_SIZE + gap
     else
         width = width + HEADER_LEFT - HEADER_RIGHT
     end
@@ -91,12 +103,14 @@ end
 function Context:LayoutHeader(frame)
     local handle = self._components[frame]
     if not handle.headerControls then return end
+    local compact = self:IsWindowCompact(frame)
+    local gap = compact and COMPACT_SECTION_GAP or MODERN_CONTROL_GAP
     local previous
     for _, control in ipairs(handle.headerControls) do
         if control:IsShown() then
             control:ClearAllPoints()
             if previous then
-                control:SetPoint("LEFT", previous, "RIGHT", CONTROL_GAP, 0)
+                control:SetPoint("LEFT", previous, "RIGHT", gap, 0)
             else
                 control:SetPoint("LEFT", frame.header, "LEFT", 0, 0)
             end
@@ -106,14 +120,14 @@ function Context:LayoutHeader(frame)
     local search = handle.search
     search:ClearAllPoints()
     if previous then
-        search:SetPoint("TOPLEFT", previous, "TOPRIGHT", CONTROL_GAP, 0)
-        search:SetPoint("BOTTOMLEFT", previous, "BOTTOMRIGHT", CONTROL_GAP, 0)
+        search:SetPoint("TOPLEFT", previous, "TOPRIGHT", gap, 0)
+        search:SetPoint("BOTTOMLEFT", previous, "BOTTOMRIGHT", gap, 0)
     else
         search:SetPoint("TOPLEFT", frame.header, "TOPLEFT", 0, 0)
         search:SetHeight(CONTROL_SIZE)
     end
-    if self:IsWindowCompact(frame) then
-        search:SetPoint("RIGHT", frame.CloseButton, "LEFT", -CONTROL_GAP, 0)
+    if compact then
+        search:SetPoint("RIGHT", frame.CloseButton, "LEFT", -gap, 0)
     else
         search:SetPoint("RIGHT", frame.header, "RIGHT", 0, 0)
     end
@@ -122,19 +136,37 @@ end
 function Context:_LayoutWindow(handle)
     local frame = handle.target
     local compact = self:IsWindowCompact(frame)
-    if handle.layoutCompact == compact then return end
+    local skin = self:GetAppliedSkin()
+    if handle.layoutSkin == skin then return end
+    handle.layoutSkin = skin
     handle.layoutCompact = compact
+    local flat = skin == "flat"
     frame.Inset:ClearAllPoints()
-    frame.Inset:SetPoint("TOPLEFT", frame, "TOPLEFT", INSET_LEFT, compact and -COMPACT_HEADER_HEIGHT or INSET_TOP)
-    frame.Inset:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", INSET_RIGHT, INSET_BOTTOM)
+    frame.Inset:SetPoint("TOPLEFT", frame, "TOPLEFT", compact and COMPACT_PADDING or INSET_LEFT,
+        compact and -COMPACT_INSET_TOP or INSET_TOP)
+    frame.Inset:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", compact and -COMPACT_PADDING or INSET_RIGHT,
+        compact and COMPACT_INSET_BOTTOM or INSET_BOTTOM)
+    frame.content:ClearAllPoints()
+    frame.content:SetPoint("TOPLEFT", frame.Inset, "TOPLEFT", compact and COMPACT_CONTENT_PADDING or CONTENT_LEFT,
+        compact and -COMPACT_CONTENT_PADDING or CONTENT_TOP)
+    frame.content:SetPoint("BOTTOMRIGHT", frame.Inset, "BOTTOMRIGHT", compact and -COMPACT_CONTENT_PADDING or CONTENT_RIGHT,
+        compact and COMPACT_CONTENT_PADDING or CONTENT_BOTTOM)
+    frame.footer:ClearAllPoints()
+    frame.footer:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", compact and COMPACT_PADDING or FOOTER_LEFT,
+        compact and COMPACT_PADDING or FOOTER_BOTTOM)
+    frame.footer:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT",
+        compact and -(COMPACT_PADDING + frame.resizeButton:GetWidth()) or FOOTER_RIGHT,
+        compact and COMPACT_PADDING or FOOTER_BOTTOM)
+    frame.footer:SetHeight(compact and COMPACT_FOOTER_HEIGHT or FOOTER_HEIGHT)
+    frame.resizeButton:ClearAllPoints()
+    frame.resizeButton:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", flat and 0 or RESIZE_RIGHT, flat and 0 or RESIZE_BOTTOM)
     frame.header:ClearAllPoints()
     frame.header:SetPoint("TOPLEFT", frame, "TOPLEFT", compact and COMPACT_PADDING or HEADER_LEFT,
-        compact and -(COMPACT_HEADER_HEIGHT - CONTROL_SIZE) / 2 or HEADER_TOP)
+        compact and -COMPACT_PADDING or HEADER_TOP)
     frame.header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", compact and -COMPACT_PADDING or HEADER_RIGHT,
-        compact and -(COMPACT_HEADER_HEIGHT - CONTROL_SIZE) / 2 or HEADER_TOP)
+        compact and -COMPACT_PADDING or HEADER_TOP)
     frame.header:SetHeight(CONTROL_SIZE)
     frame.TitleContainer:SetShown(not compact)
-    frame.headerDrag:SetShown(compact)
     local close = frame.CloseButton
     close:ClearAllPoints()
     if compact then
@@ -145,6 +177,22 @@ function Context:_LayoutWindow(handle)
         for _, point in ipairs(handle.closePoints) do close:SetPoint(unpack(point)) end
     end
     self:LayoutHeader(frame)
+end
+
+-- Register only non-action backgrounds. Child buttons retain their own native
+-- hit areas and drag handlers; there is no click-through overlay or polling.
+function Context:RegisterWindowDragRegion(frame, region)
+    local handle = assert(self._components[frame], "window must belong to this context")
+    assert(handle.role == "window" and handle.startMove, "window must be initialized before registering drag regions")
+    assert(region and type(region.RegisterForDrag) == "function", "drag region must be a frame")
+    if handle.dragRegions[region] then return end
+    assert(not region:GetScript("OnDragStart") and not region:GetScript("OnDragStop"),
+        "drag region already owns a drag action")
+    handle.dragRegions[region] = true
+    region:EnableMouse(true)
+    region:RegisterForDrag("LeftButton")
+    region:HookScript("OnDragStart", handle.startMove)
+    region:HookScript("OnDragStop", handle.stopMove)
 end
 
 local function ValidateOptions(parent, options)
@@ -207,12 +255,6 @@ function Context:CreateWindow(parent, options)
     frame.resizeButton:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", RESIZE_RIGHT, RESIZE_BOTTOM)
     frame.resizeButton:Init(frame, options.minWidth, options.minHeight, options.maxWidth, options.maxHeight)
 
-    frame.headerDrag = CreateFrame("Frame", nil, frame)
-    frame.headerDrag:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
-    frame.headerDrag:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
-    frame.headerDrag:SetHeight(COMPACT_HEADER_HEIGHT)
-    frame.headerDrag:SetFrameLevel(frame:GetFrameLevel())
-    frame.headerDrag:Hide()
     local root = self:_GetGeometryRoot(frame)
     local handle = self:RegisterComponent("window", frame, { bounds = frame }, options)
     root.window = handle
@@ -229,10 +271,12 @@ function Context:CreateWindow(parent, options)
 
     local onMoveStopped, onResizeStopped = options.onMoveStopped, options.onResizeStopped
     local function StartMove()
+        if InCombatLockdown() or handle.moving then return end
         handle.moving = true
         frame:StartMoving()
     end
     local function StopMove()
+        if not handle.moving then return end
         handle.moving = false
         frame:StopMovingOrSizing()
         if onMoveStopped then
@@ -241,11 +285,9 @@ function Context:CreateWindow(parent, options)
         RefreshGeometry()
         self:RetryPendingSkin()
     end
-    for _, drag in ipairs({ frame.TitleContainer, frame.headerDrag }) do
-        drag:EnableMouse(true)
-        drag:RegisterForDrag("LeftButton")
-        drag:SetScript("OnDragStart", StartMove)
-        drag:SetScript("OnDragStop", StopMove)
+    handle.startMove, handle.stopMove, handle.dragRegions = StartMove, StopMove, {}
+    for _, drag in ipairs({ frame, frame.TitleContainer, frame.header, frame.content, frame.footer, frame.Inset }) do
+        self:RegisterWindowDragRegion(frame, drag)
     end
     frame.resizeButton:SetOnResizeStoppedCallback(function()
         if onResizeStopped then

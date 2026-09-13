@@ -8,6 +8,9 @@ lib._modules.Flat = MINOR
 local Flat = lib._skins.flat or {}
 lib._skins.flat = Flat
 local Modern = lib._skins.modern
+local TEXT_OFFSET_Y = -1
+local SCROLL_TRACK_INSET = 15
+local CHECKMARK_OFFSET_PIXELS = 1
 
 -- Neutral framing follows the RaidGroupManager flat palette. Accent is per
 -- context; item rarity, money, binding, and other semantic colors stay intact.
@@ -34,13 +37,10 @@ end
 function Flat.Button(handle)
     Modern.Button(handle)
     HideButtonArt(handle.parts)
+    handle.parts.label:ClearAllPoints()
+    handle.parts.label:SetPoint("CENTER", handle.target, "CENTER", 0, handle.labelOffsetY + TEXT_OFFSET_Y * 2)
     if handle.parts.checked then
-        for _, checkmark in ipairs({ handle.parts.checked, handle.parts.disabledChecked }) do
-            checkmark:SetScale(1)
-            checkmark:SetSize(16, 16)
-            checkmark:ClearAllPoints()
-            checkmark:SetPoint("CENTER", handle.target, "CENTER", 0, 0)
-        end
+        -- Keep Blizzard's checkmark dimensions; its optical offset is separate.
         handle.parts.checked:SetDesaturated(true)
         handle.parts.checked:SetVertexColor(handle.context:GetColor(handle.colorToken))
     end
@@ -50,6 +50,10 @@ end
 function Flat.ButtonState(handle)
     Modern.ButtonState(handle)
     State(handle, handle.parts.surface)
+    if handle.parts.icon and not handle.preserveIconColor then
+        handle.parts.icon:SetDesaturated(true)
+        handle.parts.icon:SetVertexColor(handle.context:GetColor(handle.colorToken))
+    end
     if handle.target:IsEnabled() and handle.selected then
         handle.parts.label:SetTextColor(handle.context:GetColor(handle.colorToken))
     else
@@ -58,11 +62,32 @@ function Flat.ButtonState(handle)
     end
 end
 
+function Flat.ButtonIconLayout(handle)
+    if handle.parts.icon then
+        local offset = handle.pressIcon and handle.pressed and handle.target:IsEnabled() and not handle.selected and 1 or 0
+        lib._LayoutCenteredIcon(handle, offset, -offset)
+    end
+    if handle.parts.checked then
+        local y = 2 - lib.Pixel.GetPhysicalSize(handle.parts.checked, CHECKMARK_OFFSET_PIXELS)
+        handle.parts.checked:SetPoint("CENTER", handle.target, "CENTER", 2, y)
+        handle.parts.disabledChecked:SetPoint("CENTER", handle.target, "CENTER", 2, y)
+    end
+end
+
 function Flat.EditBox(handle)
     Modern.EditBox(handle)
     handle.parts.background:SetAlpha(0)
     if handle.parts.focus then handle.parts.focus:Hide() end
     local edit = handle.target
+    local insets = handle.textInsets
+    edit:SetTextInsets(insets[1], insets[2], insets[3] - TEXT_OFFSET_Y * 2, insets[4])
+    if handle.parts.instructions then
+        handle.parts.instructions:ClearAllPoints()
+        handle.parts.instructions:SetPoint("TOPLEFT", edit, "TOPLEFT", insets[1], TEXT_OFFSET_Y)
+        handle.parts.instructions:SetPoint("BOTTOMRIGHT", edit, "BOTTOMRIGHT", -insets[2], TEXT_OFFSET_Y)
+        handle.parts.clearButton.Icon:SetTexture(lib._media.close)
+        handle.parts.clearButton.Icon:SetVertexColor(handle.context:GetColor(handle.colorToken))
+    end
     Paint(handle.parts.surface, edit:IsEnabled() and 0.14 or 0.07, edit:IsEnabled() and 0.45 or 0.25)
     if edit:IsEnabled() and edit:HasFocus() then
         handle.parts.surface.border:SetColor(handle.context:GetColor(handle.colorToken))
@@ -73,6 +98,11 @@ function Flat.ExpandableHeader(handle)
     Modern.ExpandableHeader(handle)
     HideButtonArt(handle.parts)
     State(handle, handle.parts.surface)
+    handle.parts.arrow:SetTexture(handle.expanded and lib._media.caretDown or lib._media.caretUp)
+    handle.parts.arrow:SetTexCoord(0, 1, 0, 1)
+    handle.parts.arrow:SetRotation(0)
+    handle.parts.arrow:ClearAllPoints()
+    handle.parts.arrow:SetPoint("RIGHT", handle.target, "RIGHT", -12, 0)
     handle.parts.arrow:SetDesaturated(true)
     handle.parts.arrow:SetVertexColor(handle.context:GetColor(handle.colorToken))
 end
@@ -82,14 +112,23 @@ function Flat.Window(handle)
     for _, region in ipairs(handle.parts.chrome) do region:SetAlpha(0) end
     frame.TopTileStreaks:SetAlpha(0)
     Paint(handle.parts.surface, 0.05, 0, 0.95)
+    Paint(handle.parts.contentSurface, 0.035, 0.3, 0.95)
 end
 
 function Flat.Icon(handle)
     if handle.alphaOwned then handle.target:SetAlpha(handle.alpha) end
     if handle.crop then handle.target:SetTexCoord(0.08, 0.92, 0.08, 0.92) end
     handle.parts.border:Hide()
+    Flat.IconState(handle)
     Flat.IconColor(handle)
     Flat.IconVisibility(handle)
+end
+
+function Flat.IconState(handle)
+    if handle.actionIcon then
+        handle.target:SetDesaturated(true)
+        handle.target:SetVertexColor(handle.context:GetColor(handle.colorToken))
+    end
 end
 
 function Flat.IconColor(handle)
@@ -98,7 +137,11 @@ end
 
 function Flat.IconVisibility(handle)
     if handle.borderShown and handle.target:IsVisible() then
-        handle.parts.flatBorder:Layout(handle.root.metrics, 2, handle.clip)
+        -- Preserve the outer footprint and outside-art inset at small
+        -- effective scales so pixel rounding cannot place the stroke over
+        -- the image.
+        local outset = math.max(handle.borderOutset, handle.root.metrics.unit * 3) - handle.artworkOutset
+        handle.parts.flatBorder:Layout(handle.root.metrics, 1, handle.clip, outset)
     else
         handle.parts.flatBorder:Hide()
     end
@@ -121,7 +164,8 @@ function Flat.NativeButton(handle)
     for _, state in ipairs(handle.parts.states) do state.region:SetAlpha(0) end
     local icon = handle.parts.icon
     if handle.kind == "close" then
-        icon:SetAtlas("common-icon-redx", false)
+        icon:SetTexture(lib._media.close)
+        icon:SetTexCoord(0, 1, 0, 1)
     else
         -- Keep Blizzard's resize glyph, but no surrounding native button art.
         local state = handle.parts.states[1]
@@ -129,27 +173,51 @@ function Flat.NativeButton(handle)
             if state.atlas then icon:SetAtlas(state.atlas, false) else icon:SetTexture(state.texture) end
             icon:SetTexCoord(unpack(state.coordinates))
         end
-        icon:SetDesaturated(true)
     end
+    icon:SetDesaturated(true)
+    icon:SetVertexColor(handle.context:GetColor(handle.colorToken))
     icon:SetAlpha(handle.target:IsEnabled() and 1 or 0.5)
     icon:Show()
-    State(handle, handle.parts.surface)
+    Flat.NativeButtonLayout(handle)
+    if handle.kind ~= "resize" then State(handle, handle.parts.surface) end
+end
+
+function Flat.NativeButtonLayout(handle)
+    if handle.kind == "close" then
+        lib._LayoutCenteredIcon(handle)
+    else
+        Modern.NativeButtonLayout(handle)
+    end
 end
 
 function Flat.ScrollBar(handle)
     local parts = handle.parts
+    if handle.layoutSkin ~= "flat" then
+        handle.layoutSkin = "flat"
+        handle:LayoutAnchor(true)
+        parts.track:ClearAllPoints()
+        parts.track:SetPoint("TOP", handle.target, "TOP", 0, -SCROLL_TRACK_INSET)
+        parts.track:SetPoint("BOTTOM", handle.target, "BOTTOM", 0, SCROLL_TRACK_INSET)
+    end
     for _, region in ipairs({ parts.track.Begin, parts.track.Middle, parts.track.End,
         parts.thumb.Begin, parts.thumb.Middle, parts.thumb.End }) do region:SetAlpha(0) end
     Paint(parts.trackSurface, 0.04, 0.12)
     Paint(parts.thumbSurface, parts.thumb.down and 0.4 or (parts.thumb.over and 0.55 or 0.3), 0.1)
     for index, button in ipairs({ parts.back, parts.forward }) do
-        button.Texture:SetAtlas("common-dropdown-icon-next", false)
+        button.Texture:SetTexture(index == 1 and lib._media.caretUp or lib._media.caretDown)
+        button.Texture:SetTexCoord(0, 1, 0, 1)
         button.Texture:SetSize(12, 12)
-        button.Texture:SetRotation(index == 1 and math.pi * 0.5 or math.pi * 1.5)
+        -- Change the resting anchor only; Blizzard owns pressed-point offsets.
+        if handle.stepperLayoutSkin ~= "flat" then
+            button.Texture:ClearAllPoints()
+            button.Texture:SetPoint("CENTER", button, "CENTER", 0, 0)
+        end
+        button.Texture:SetRotation(0)
         button.Texture:SetDesaturated(true)
-        local c = button:IsEnabled() and (button.over and 1 or 0.7) or 0.3
-        button.Texture:SetVertexColor(c, c, c, 1)
+        local r, g, b, a = handle.context:GetColor(handle.colorToken)
+        button.Texture:SetVertexColor(r, g, b, a * (button:IsEnabled() and (button.over and 1 or 0.7) or 0.3))
     end
+    handle.stepperLayoutSkin = "flat"
 end
 
 function Flat.ScrollThumbSize(handle)

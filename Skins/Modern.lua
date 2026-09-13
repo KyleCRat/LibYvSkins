@@ -7,6 +7,16 @@ lib._modules.Modern = MINOR
 
 local Modern = lib._skins.modern or {}
 lib._skins.modern = Modern
+local GOLD_R, GOLD_G, GOLD_B = 1, 0.82, 0
+local SQUARE_ICON_OFFSET_PIXELS = 1
+
+local function SetActionIconColor(icon, enabled)
+    if enabled then
+        icon:SetVertexColor(GOLD_R, GOLD_G, GOLD_B, 1)
+    else
+        icon:SetVertexColor(0.5, 0.5, 0.5, 1)
+    end
+end
 
 function Modern.PopupSlider(handle)
     local popup, parts, baseline = handle.target, handle.parts.visuals, handle.baseline
@@ -28,6 +38,7 @@ function Modern.PopupSlider(handle)
 end
 
 function Modern.NativeButton(handle)
+    Modern.NativeButtonLayout(handle)
     handle.parts.icon:Hide()
     for _, state in ipairs(handle.parts.states) do
         local texture = state.region
@@ -38,6 +49,11 @@ function Modern.NativeButton(handle)
         texture:SetAlpha(state.alpha)
         texture:SetBlendMode(state.blend)
     end
+end
+
+function Modern.NativeButtonLayout(handle)
+    lib._RestoreIconLayout(handle)
+    handle.parts.icon:SetPoint("CENTER", handle.target, "CENTER", 0, 0)
 end
 
 function Modern.ExpandableHeader(handle)
@@ -72,12 +88,27 @@ end
 
 function Modern.ScrollBar(handle)
     local parts = handle.parts
+    if handle.layoutSkin ~= "modern" then
+        local restoreTrack = handle.layoutSkin == "flat"
+        handle.layoutSkin = "modern"
+        handle:LayoutAnchor(false)
+        if restoreTrack then
+            parts.track:ClearAllPoints()
+            for _, point in ipairs(handle.trackPoints) do parts.track:SetPoint(unpack(point)) end
+        end
+    end
     for _, region in ipairs({ parts.track.Begin, parts.track.Middle, parts.track.End,
         parts.thumb.Begin, parts.thumb.Middle, parts.thumb.End }) do region:SetAlpha(1) end
     for _, button in ipairs({ parts.back, parts.forward }) do
         button.Texture:SetRotation(0)
         button.Texture:SetVertexColor(1, 1, 1, 1)
+        button.Texture:SetDesaturated(not button:IsEnabled())
+        if handle.stepperLayoutSkin == "flat" then
+            button.Texture:ClearAllPoints()
+            for _, point in ipairs(handle.stepperPoints[button]) do button.Texture:SetPoint(unpack(point)) end
+        end
     end
+    handle.stepperLayoutSkin = "modern"
     parts.track.Begin:SetAtlas("minimal-scrollbar-track-top", true)
     parts.track.Middle:SetAtlas("!minimal-scrollbar-track-middle", true)
     parts.track.End:SetAtlas("minimal-scrollbar-track-bottom", true)
@@ -108,6 +139,8 @@ function Modern.Button(handle)
     local button, parts = handle.target, handle.parts
     local atlases = BUTTON_ATLASES[handle.variant]
     local selected = handle.selected
+    parts.label:ClearAllPoints()
+    parts.label:SetPoint("CENTER", button, "CENTER", 0, handle.labelOffsetY)
     parts.normal:SetAlpha(1)
     parts.hover:SetAlpha(1)
     parts.pressed:SetAlpha(1)
@@ -148,7 +181,7 @@ function Modern.ButtonState(handle)
     parts.hover:SetShown(enabled and not selected and handle.hovered and not handle.pressed)
     parts.pressed:SetShown(enabled and not selected and handle.pressed)
     parts.disabled:SetShown(not enabled)
-    local r, g, b = 1, 0.82, 0
+    local r, g, b = GOLD_R, GOLD_G, GOLD_B
     if not enabled then
         r, g, b = 0.5, 0.5, 0.5
     elseif handle.isTab and not selected then
@@ -158,11 +191,29 @@ function Modern.ButtonState(handle)
     end
     parts.label:SetTextColor(r, g, b, 1)
     if parts.icon then
+        if handle.preserveIconColor then
+            parts.icon:SetVertexColor(1, 1, 1, 1)
+        else
+            SetActionIconColor(parts.icon, enabled)
+        end
         parts.icon:SetDesaturated(not enabled)
         parts.icon:SetAlpha(enabled and (handle.hovered and 1 or handle.iconAlpha) or handle.disabledIconAlpha)
-        local offset = handle.pressIcon and handle.pressed and enabled and not selected and 1 or 0
-        parts.icon:ClearAllPoints()
-        parts.icon:SetPoint("CENTER", button, "CENTER", offset, -offset)
+    end
+    handle.context:_GetRenderer().ButtonIconLayout(handle)
+end
+
+function Modern.ButtonIconLayout(handle)
+    local button, parts = handle.target, handle.parts
+    if parts.icon then
+        lib._RestoreIconLayout(handle)
+        local offset = handle.pressIcon and handle.pressed and button:IsEnabled() and not handle.selected and 1 or 0
+        -- Compensate for the tertiary-square atlas's heavier bottom edge.
+        local y = handle.variant == "square" and SQUARE_ICON_OFFSET_PIXELS * handle.root.metrics.unit or 0
+        parts.icon:SetPoint("CENTER", button, "CENTER", offset, y - offset)
+    end
+    if parts.checked then
+        parts.checked:SetPoint("CENTER", button, "CENTER", 2, 2)
+        parts.disabledChecked:SetPoint("CENTER", button, "CENTER", 2, 2)
     end
 end
 
@@ -195,11 +246,20 @@ function Modern.Icon(handle)
     handle.parts.flatBorder:Hide()
     handle.parts.border:SetTexture(handle.borderTexture)
     if handle.alphaOwned then handle.target:SetAlpha(handle.alpha) end
+    Modern.IconState(handle)
     Modern.IconColor(handle)
     if handle.crop then
         handle.target:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     end
     Modern.IconLayout(handle)
+end
+
+function Modern.IconState(handle)
+    if handle.actionIcon then
+        local enabled = handle.parts.bounds:IsEnabled()
+        handle.target:SetDesaturated(not enabled)
+        SetActionIconColor(handle.target, enabled)
+    end
 end
 
 function Modern.IconColor(handle)
@@ -208,7 +268,8 @@ function Modern.IconColor(handle)
 end
 
 function Modern.IconLayout(handle)
-    local border, icon, outset = handle.parts.border, handle.target, handle.borderOutset
+    local border, icon = handle.parts.border, handle.target
+    local outset = handle.borderOutset - handle.artworkOutset
     border:ClearAllPoints()
     border:SetPoint("TOPLEFT", icon, "TOPLEFT", -outset, outset)
     border:SetPoint("BOTTOMRIGHT", icon, "BOTTOMRIGHT", outset, -outset)
@@ -221,6 +282,14 @@ end
 
 function Modern.EditBox(handle)
     local editBox, parts = handle.target, handle.parts
+    editBox:SetTextInsets(unpack(handle.textInsets))
+    if parts.instructions then
+        parts.instructions:ClearAllPoints()
+        parts.instructions:SetPoint("TOPLEFT", editBox, "TOPLEFT", handle.textInsets[1], 0)
+        parts.instructions:SetPoint("BOTTOMRIGHT", editBox, "BOTTOMRIGHT", -handle.textInsets[2], 0)
+        parts.clearButton.Icon:SetAtlas("common-search-clearbutton", false)
+        parts.clearButton.Icon:SetVertexColor(1, 1, 1, 1)
+    end
     if handle.alphaOwned then editBox:SetAlpha(handle.alpha) end
     parts.background:SetAtlas("common-button-tertiary-depressed-normal", false)
     parts.background:SetAlpha(1)

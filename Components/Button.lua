@@ -21,6 +21,7 @@ local function ValidateOptions(parent, options)
     assert(options.checkmarkScale == nil or (type(options.checkmarkScale) == "number" and options.checkmarkScale > 0),
         "checkmarkScale must be positive")
     assert(options.pressIcon == nil or type(options.pressIcon) == "boolean", "pressIcon must be boolean")
+    assert(options.preserveIconColor == nil or type(options.preserveIconColor) == "boolean", "preserveIconColor must be boolean")
     assert(options.labelOffsetY == nil or type(options.labelOffsetY) == "number", "labelOffsetY must be numeric")
     for _, key in ipairs({ "iconAlpha", "disabledIconAlpha" }) do
         assert(options[key] == nil or (type(options[key]) == "number" and options[key] >= 0 and options[key] <= 1),
@@ -43,9 +44,11 @@ function definition.Initialize(handle, options)
     handle.isTab = options.isTab == true
     handle.hovered, handle.pressed = false, false
     handle.pressIcon = options.pressIcon == true
+    handle.preserveIconColor = options.preserveIconColor == true
     handle.iconAlpha = options.iconAlpha or 1
     handle.disabledIconAlpha = options.disabledIconAlpha or 0.5
     handle.checkmarkScale = options.checkmarkScale or 1.25
+    handle.labelOffsetY = options.labelOffsetY or 1
     parts.normal = lib._CreateStateTexture(button, "BACKGROUND")
     parts.hover = lib._CreateStateTexture(button, "BORDER")
     parts.pressed = lib._CreateStateTexture(button, "BORDER")
@@ -54,7 +57,7 @@ function definition.Initialize(handle, options)
     parts.label = label
     button:SetFontString(label)
     button.Text = label
-    label:SetPoint("CENTER", button, "CENTER", 0, options.labelOffsetY or 1)
+    label:SetPoint("CENTER", button, "CENTER", 0, handle.labelOffsetY)
     if handle.fontObject then
         label:SetFontObject(handle.fontObject)
     elseif handle.font then
@@ -69,7 +72,9 @@ function definition.Initialize(handle, options)
         local icon = button:CreateTexture(nil, "OVERLAY", nil, 1)
         if options.iconAtlas then icon:SetAtlas(options.iconAtlas, false) else icon:SetTexture(options.icon) end
         icon:SetSize(options.iconWidth or 18, options.iconHeight or options.iconWidth or 18)
+        icon:SetPoint("CENTER", button, "CENTER", 0, 0)
         parts.icon = icon
+        lib._InitializeIconLayout(handle)
     end
     if options.checkbox then
         parts.checked = button:CreateTexture(nil, "ARTWORK")
@@ -89,7 +94,9 @@ function definition.ApplyAppearance(handle)
 end
 
 function definition.Layout(handle)
-    -- The caller owns anchors, dimensions, and native control visibility.
+    -- Recompute snapped glyph geometry after scale changes, without changing
+    -- the caller's button geometry or reloading fonts/atlases.
+    handle.context:_GetRenderer().ButtonIconLayout(handle)
 end
 
 function Button:SetSelected(selected)

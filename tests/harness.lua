@@ -9,7 +9,7 @@ end
 
 function Harness.New()
     local state = { height = 1440, factorReads = 0, regions = 0, hooks = 0,
-        fontWrites = 0, atlasWrites = 0, timers = {}, frames = {} }
+        fontWrites = 0, atlasWrites = 0, atlasSizes = {}, timers = {}, frames = {} }
     local env = setmetatable({}, { __index = _G })
     env._G = env
     env.strmatch = string.match
@@ -33,6 +33,7 @@ function Harness.New()
         end
         return pixels * unit
     end
+    env.PixelUtil.SetPoint = function(region, ...) region:SetPoint(...) end
     env.C_Timer = { After = function(_, callback) state.timers[#state.timers + 1] = callback end }
     env.InCombatLockdown = function() return state.combat == true end
 
@@ -56,11 +57,13 @@ function Harness.New()
         if changed then self:RunScript("OnHide") end
     end
     function Region:SetShown(value) if value then self:Show() else self:Hide() end end
-    function Region:SetColorTexture(...) self.colorTexture = { ... } end
+    function Region:SetColorTexture(...) self.colorTexture, self.atlas, self.texture = { ... }, nil, nil end
     function Region:SetVertexColor(...) self.color = { ... } end
     function Region:SetBlendMode(value) self.blend = value end
     function Region:SetSnapToPixelGrid(value) self.snap = value end
+    function Region:IsSnappingToPixelGrid() return self.snap ~= false end
     function Region:SetTexelSnappingBias(value) self.bias = value end
+    function Region:GetTexelSnappingBias() return self.bias or 0.5 end
     function Region:SetAlpha(value) self.alpha = value end
     function Region:GetAlpha() return self.alpha or 1 end
     function Region:GetAtlas() return self.atlas end
@@ -72,6 +75,8 @@ function Harness.New()
     function Region:SetAtlas(atlas, useAtlasSize)
         state.atlasWrites = state.atlasWrites + 1
         self.atlas, self.useAtlasSize, self.texture = atlas, useAtlasSize, nil
+        local size = state.atlasSizes[atlas]
+        if useAtlasSize and size then self:SetSize(size[1], size[2]) end
     end
     function Region:SetRotation(value) self.rotation = value end
     function Region:SetDesaturated(value) self.desaturated = value end
@@ -83,6 +88,7 @@ function Harness.New()
     function Region:GetChecked() return self.checked end
     function Region:SetAutoFocus(value) self.autoFocus = value end
     function Region:SetTextInsets(...) self.textInsets = { ... } end
+    function Region:GetTextInsets() return unpack(self.textInsets or { 0, 0, 0, 0 }) end
     function Region:HasFocus() return self.focused == true end
     function Region:SetFocus() self.focused = true; self:RunScript("OnEditFocusGained") end
     function Region:ClearFocus() self.focused = false; self:RunScript("OnEditFocusLost") end
@@ -125,6 +131,10 @@ function Harness.New()
     function Region:SetHorizTile(value) self.horizTile = value end
     function Region:SetVertTile(value) self.vertTile = value end
     function Region:ClearAllPoints() self.points = nil end
+    function Region:AdjustPointsOffset(x, y)
+        self.pointsOffsetX, self.pointsOffsetY = (self.pointsOffsetX or 0) + x, (self.pointsOffsetY or 0) + y
+    end
+    function Region:ClearPointsOffset() self.pointsOffsetX, self.pointsOffsetY = 0, 0 end
     function Region:SetPoint(point, relativeTo, relativePoint, x, y)
         self.points = self.points or {}
         self.points[point] = { relativeTo, relativePoint, x or 0, y or 0 }
@@ -164,7 +174,7 @@ function Harness.New()
             if not width or not height then return end
             local left = xs[0] or (xs[1] and xs[1] - width) or (xs[0.5] and xs[0.5] - width / 2)
             local bottom = ys[0] or (ys[1] and ys[1] - height) or (ys[0.5] and ys[0.5] - height / 2)
-            return left, bottom, width, height
+            return left and left + (self.pointsOffsetX or 0), bottom and bottom + (self.pointsOffsetY or 0), width, height
         end
         return self.left, self.bottom, self.width, self.height
     end
@@ -247,6 +257,8 @@ function Harness.New()
     env.MinimalScrollBarStepperScriptsMixin = {
         OnButtonStateChanged = function(button)
             button.nativeStateCalls = (button.nativeStateCalls or 0) + 1
+            button.Texture:SetAtlas("native-stepper", true)
+            button.Texture:SetSize(17, 11)
         end,
     }
     function env.CreateFrame(frameType, name, parent, template)
@@ -271,6 +283,7 @@ function Harness.New()
             normal:SetAtlas("native-close", false)
             frame.CloseButton:SetNormalTexture(normal)
         elseif template == "PanelResizeButtonTemplate" then
+            frame:SetSize(16, 16)
             local normal = frame:CreateTexture()
             normal:SetTexture("native-resize")
             frame:SetNormalTexture(normal)
@@ -285,15 +298,24 @@ function Harness.New()
             frame.Instructions = frame:CreateFontString()
             frame.searchIcon = frame:CreateTexture()
             frame.clearButton = env.CreateFrame("Button", nil, frame)
+            frame.clearButton.Icon = frame.clearButton:CreateTexture()
+            frame.clearButton.Icon:SetAtlas("common-search-clearbutton", false)
+            frame.clearButton.Icon:SetAlpha(0.5)
             frame.clearButton:SetScript("OnClick", function() frame:SetText(""); frame:ClearFocus() end)
             frame:SetScript("OnEnterPressed", function() frame:ClearFocus() end)
             frame:SetScript("OnEscapePressed", function() frame:ClearFocus() end)
         elseif template == "MinimalScrollBar" then
+            frame:SetSize(8, 560)
             frame.Track = env.CreateFrame("Frame", nil, frame)
+            frame.Track:SetWidth(8)
+            frame.Track:SetPoint("TOP", frame, "TOP", 0, -19)
+            frame.Track:SetPoint("BOTTOM", frame, "BOTTOM", 0, 19)
             frame.Track.Begin = frame.Track:CreateTexture()
             frame.Track.Middle = frame.Track:CreateTexture()
             frame.Track.End = frame.Track:CreateTexture()
             frame.Track.Thumb = env.CreateFrame("Button", nil, frame.Track)
+            frame.Track.Thumb:SetSize(8, 23)
+            frame.Track.Thumb:SetPoint("TOP", frame.Track, "TOP", 0, 0)
             frame.Track.Thumb.Begin = frame.Track.Thumb:CreateTexture()
             frame.Track.Thumb.Middle = frame.Track.Thumb:CreateTexture()
             frame.Track.Thumb.End = frame.Track.Thumb:CreateTexture()
@@ -301,6 +323,24 @@ function Harness.New()
             frame.Forward = env.CreateFrame("Button", nil, frame)
             frame.Back.Texture = frame.Back:CreateTexture()
             frame.Forward.Texture = frame.Forward:CreateTexture()
+            frame.Back:SetSize(17, 11)
+            frame.Forward:SetSize(17, 11)
+            frame.Back:SetPoint("TOP", frame, "TOP", 0, 0)
+            frame.Forward:SetPoint("BOTTOM", frame, "BOTTOM", 0, 0)
+            frame.Back.Texture:SetPoint("TOPLEFT", frame.Back, "TOPLEFT", 0, 0)
+            frame.Forward.Texture:SetPoint("TOPLEFT", frame.Forward, "TOPLEFT", 0, 0)
+            for _, stepper in ipairs({ frame.Back, frame.Forward }) do
+                stepper:SetScript("OnMouseDown", function(self)
+                    self.down = true
+                    self.Texture:AdjustPointsOffset(1, -1)
+                    self:OnButtonStateChanged()
+                end)
+                stepper:SetScript("OnMouseUp", function(self)
+                    self.down = nil
+                    self.Texture:AdjustPointsOffset(-1, 1)
+                    self:OnButtonStateChanged()
+                end)
+            end
             frame.Track.Thumb:SetScript("OnDragStart", function(self) self.dragging = true end)
             frame.Forward:SetScript("OnClick", function(self) self.clicked = true end)
         end
@@ -329,7 +369,7 @@ function Harness.New()
                     'local MAJOR, MINOR = "LibYvSkins-1.0", ' .. minor, 1)
             end
             local chunk = assert(loadstring(source, "@" .. path))
-            setfenv(chunk, env)()
+            setfenv(chunk, env)(state.addonName or "LibYvSkins-1.0")
         end
         self.lib = env.LibStub("LibYvSkins-1.0")
         return self.lib

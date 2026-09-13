@@ -12,26 +12,50 @@ lib._iconPrototype = Icon
 Icon.__index = Icon
 setmetatable(Icon, { __index = lib._controlPrototype })
 
+local function ValidateOptions(parent, options)
+    lib._ValidateControl(parent, options)
+    assert(options.actionIcon == nil or type(options.actionIcon) == "boolean", "actionIcon must be boolean")
+    assert(not options.actionIcon or type(parent.IsEnabled) == "function", "action icons require a button parent")
+    assert(options.borderOutset == nil or (type(options.borderOutset) == "number" and options.borderOutset >= 0),
+        "borderOutset must be non-negative")
+    assert(options.artworkOutset == nil or (type(options.artworkOutset) == "number"
+        and options.artworkOutset >= 0 and options.artworkOutset <= (options.borderOutset or 3)),
+        "artworkOutset must be between zero and borderOutset")
+end
+
 function definition.Validate(target, parts, options)
     assert(target and type(target.SetTexCoord) == "function", "icon role requires a Texture")
     assert(type(parts) == "table" and parts.bounds, "icon role requires bounds")
-    lib._ValidateControl(parts.bounds, options)
-    assert(options.borderOutset == nil or (type(options.borderOutset) == "number" and options.borderOutset >= 0),
-        "borderOutset must be non-negative")
+    ValidateOptions(parts.bounds, options)
 end
 
 function definition.Initialize(handle, options)
     lib._InitializeControl(handle, options, Icon)
     handle.borderTexture = options.borderTexture or (handle.context._media and handle.context._media.iconBorder)
     handle.borderOutset = options.borderOutset or 3
+    handle.artworkOutset = options.artworkOutset or 0
+    if handle.artworkOutset > 0 then
+        local width, height = handle.target:GetSize()
+        local growth = handle.artworkOutset * 2
+        handle.target:SetSize(width + growth, height + growth)
+    end
     handle.crop = options.crop ~= false
+    handle.actionIcon = options.actionIcon == true
     handle.r, handle.g, handle.b, handle.a = 1, 1, 1, 1
     handle.borderAlpha, handle.borderShown = 1, true
     handle.parts.border = handle.target:GetParent():CreateTexture(
         nil, options.borderLayer or "OVERLAY", nil, options.borderSublevel or 0
     )
-    handle.parts.flatBorder = lib.Pixel.CreateBorder(handle.target:GetParent(), handle.target, "OVERLAY", 1)
+    handle.parts.flatBorder = lib.Pixel.CreateBorder(handle.target:GetParent(), handle.target,
+        options.borderLayer or "OVERLAY", options.borderSublevel or 0)
     handle.target:GetParent():HookScript("OnShow", function() handle:RefreshGeometry() end)
+    if handle.actionIcon then
+        local function RefreshState()
+            if handle.registered ~= false then handle.context:_GetRenderer().IconState(handle) end
+        end
+        handle.parts.bounds:HookScript("OnEnable", RefreshState)
+        handle.parts.bounds:HookScript("OnDisable", RefreshState)
+    end
 end
 
 function definition.ApplyAppearance(handle)
@@ -77,12 +101,10 @@ end
 
 function lib._contextPrototype:CreateIcon(parent, options)
     if options == nil then options = {} end
-    lib._ValidateControl(parent, options)
+    ValidateOptions(parent, options)
     self:GetColor(options.colorToken or "accent")
     assert(options.borderTexture or (self._media and self._media.iconBorder),
         "icon requires a context or component border texture")
-    assert(options.borderOutset == nil or (type(options.borderOutset) == "number" and options.borderOutset >= 0),
-        "borderOutset must be non-negative")
     local icon = parent:CreateTexture(nil, options.layer or "ARTWORK", nil, options.sublevel or 0)
     icon:SetSize(options.width or 23, options.height or options.width or 23)
     local handle = self:RegisterComponent("icon", icon, { bounds = parent }, options)

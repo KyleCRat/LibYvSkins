@@ -21,7 +21,11 @@ Retail 12.1.0.69497; in-game validation is required before release, including
 any additional client versions advertised by a consumer.
 
 The Git repository is unversioned (`LibYvSkins`); the embed directory follows
-the API family (`LibYvSkins-1.0`). The first intended release tag is `1.0.0`.
+the API family (`LibYvSkins-1.0`). Embed it at `Libs/LibYvSkins-1.0`, including
+its `Media` directory. Owned textures resolve from the winning embed's addon
+name (or the `LibYvSkins-1.0` root when loaded standalone), not the consumer
+context name. Centered 64x64 Vertex glyphs are bundled with the library; no
+other addon supplies them at runtime. The first intended release tag is `1.0.0`.
 Only increment MINOR when preparing a subsequent published implementation,
 not for each development change. Preserve all split-file guards: old embeds
 must not replace modules from the newer implementation selected by LibStub.
@@ -71,7 +75,8 @@ The constructor owns these public frame parts and their outer anchors:
 - `window.resizeButton`: native `PanelResizeButtonTemplate`, initialized once.
 - `window.Inset`, `TitleContainer`, and `CloseButton`: original native parts.
 
-The title supports native movement; optional `onMoveStopped(frame)` and
+Non-action window backgrounds support native dragging outside combat in both
+skins; optional `onMoveStopped(frame)` and
 `onResizeStopped(frame)` run after movement ends. The library owns no saved
 position, scale, or size: consumers restore/persist these and call
 `context:RefreshGeometry(window)` after explicit scale/position changes.
@@ -79,11 +84,19 @@ Consumers also own client-position-saving policy (`SetDontSavePosition` /
 `SetUserPlaced`) and may directly replace `CloseButton`'s `OnClick`, such as
 closing a native bank session. No input/value getters are wrapped.
 
+`context:RegisterWindowDragRegion(window, region)` adds an addon-created
+background, such as an empty ScrollBox or a tooltip-only money display, to the
+same movement lifecycle. Registration is idempotent, preserves other scripts,
+and rejects regions that already own drag handlers. Register backgrounds only:
+child item/action buttons retain their own clicks and drags. No click-through
+overlay, global mouse propagation, or polling is installed.
+
 The factory installs show/size geometry hooks once and preserves consumer
 scripts. A window retains its geometry root for its lifetime, even without
-registered strokes. `context:GetWindowChromeWidth()` returns the horizontal
-content overhead for consumer size constraints without duplicating inset
-constants. Do not reposition the library's slots from addon refresh handlers.
+registered strokes. `context:GetWindowChromeWidth(window)` returns the current
+horizontal content overhead for consumer size constraints without duplicating
+inset constants; omitting the window returns the Modern baseline. Do not
+reposition the library's slots from addon refresh handlers.
 There is no `RegisterWindow` or arbitrary existing-window skinning API.
 
 ## Skin Selection And Compact Headers
@@ -108,10 +121,15 @@ for presentation-only resize constraints and `onStatusChanged` for Settings
 status. Never rebuild inventory/providers or commit geometry just to reskin.
 
 With `compactHeader = true`, Flat hides the native portrait/title art and uses
-a 36-unit header, 28-unit controls, 2-unit gaps, 8-unit side padding, and a
-96-unit minimum search width. The existing close button joins the header;
-an underlying drag region leaves controls interactive. Outer size, position,
-footer height, and native input scripts remain unchanged. Modern restores the
+28-unit toolbar controls, 4-unit control gaps, 8-unit outer padding, and a
+96-unit minimum search width. An outlined content inset separates the toolbar
+and footer with matching 4-unit gaps. Controls start at the toolbar's left edge,
+and the existing close button joins its right end. The footer is 24 units high
+with 8 units below it. Consumers can size footer actions to its current height
+and listen for height changes when switching skins. The footer reserves the
+grip's width in addition to its right padding; the grip itself touches the
+bottom-right frame corner. Outer size, position, and native input scripts
+remain unchanged. Modern restores its 28-unit footer and the
 original chrome. Layout is opt-in: Flat without `compactHeader` retains the
 original title/header geometry.
 
@@ -125,9 +143,19 @@ and chrome with the constructor minimum; apply it to native resize bounds.
 reserve while prewarming Modern rows for a later compact switch.
 
 Flat surfaces use preallocated, screen-snapped, nonoverlapping one-physical-
-pixel edges. Icon borders use two physical pixels inside the icon bounds;
-`borderOutset` remains a Modern textured-border setting. Focus and selected
-states use the context accent, with neutral hover/pressed/disabled states.
+pixel edges. Icon borders use one physical pixel outside the artwork, keeping
+the Modern border footprint where possible and expanding at small effective
+scales to leave the art unobscured. Generic action glyphs, focus, and selected
+states use the context accent, with neutral surfaces and disabled states.
+Checkboxes retain their native checkmark atlas and scale, with a separate
+one-physical-pixel downward offset in Flat. Button and close glyphs center
+within the same snapped bounds as their borders. Their rendered dimensions
+match the bounds' odd/even pixel counts, adjusting at most one physical pixel
+per axis for equal integer margins. Modern restores nominal dimensions and
+texture snapping; text alignment remains independent. Flat close and search-clear
+controls use `Vertex-Close.tga`; accordion and scrollbar carets use dedicated
+directional textures without rotation or the previous optical offsets.
+The resize grip has no surrounding surface.
 Semantic text/icon colors, input values, focus, checked/expanded state, and
 hidden pool members survive round trips. Flat controls/icons can receive an
 optional same-scale `clip` region for pixel-snapped viewport clipping.
@@ -179,14 +207,34 @@ geometry root and effective scale. Defaults for ordinary buttons/inputs are
 context font at size 13, or the corresponding native FontObject when omitted.
 For buttons, `fontObject` takes precedence over the custom font.
 
+`LibYvSkins:GetIconTexture(name)` returns a bundled Vertex texture path for
+`close`, `settings`, `gear`, `scale`, `plus`, `minus`, `arrowUp`, `arrowDown`,
+`arrowLeft`, `arrowRight`, `caretUp`, `caretDown`, `caretLeft`, or `caretRight`.
+The up-arrow asset is named `Vertex-Arrow.tga`. Unknown names raise an error.
+Use these paths with existing button, texture, or icon factories; directional
+variants do not need rotation or flipped UVs.
+
 Buttons accept `text`, either `icon` or `iconAtlas`, `iconWidth` / `iconHeight`
 (18), `iconAlpha` (1), `disabledIconAlpha` (0.5), `pressIcon` (false), and
-`labelOffsetY` (1). `template` may supply native behavior, such as
+`labelOffsetY` (1; Flat adds a -2 optical adjustment). `template` may supply native behavior, such as
 `DisabledTooltipButtonTemplate`; use behavior-only templates without competing
 art. `button.Text` and the handle's `parts.label` refer to its native FontString;
-`parts.icon` is present when requested. Checkbox `checkmarkScale` defaults to
-1.25. Input `focusGlow` defaults to true. Caller-owned anchors and dimensions
+`parts.icon` is present when requested. Button glyphs use gold in Modern and
+the context accent in Flat. Set `preserveIconColor = true` for multicolor
+artwork that should skip both tints; disabled desaturation and hover/disabled
+alpha still apply. It defaults to false.
+Checkbox `checkmarkScale` defaults to 1.25. Input `focusGlow` defaults to true.
+Caller-owned anchors and dimensions
 remain independent of input values and visual state.
+
+Scrollbars optionally accept `anchor` and a positive `gutterWidth` to let the
+renderer own their outer anchors. The gutter is inside the anchor's right edge:
+Flat centers the native bar in it; Modern uses `rightOffset` (default 0).
+`topOffset` and `bottomOffset` (both default 0) apply in both skins. The anchor
+must share the parent's effective scale. Flat shortens the gaps between the
+arrows and track; Modern restores the template's track anchors. Native thumb,
+stepper, drag, and ScrollBox behavior remain unchanged. Without `anchor`, the
+caller retains ownership of outer scrollbar placement.
 
 Text/texture factories accept `layer`; textures/icons also accept `sublevel`.
 Text and texture colors are consumer-owned unless `colorToken` is supplied.
@@ -196,7 +244,17 @@ and visibility survive context refreshes.
 
 Icons require a context `iconBorder` or an explicit `borderTexture`. Defaults
 are 23 units square, `borderOutset = 3`, and cropped item UVs (0.08–0.92).
+Optional `artworkOutset` (default 0, at most `borderOutset`) expands the initial
+artwork dimensions by that many UI units on each edge while retaining the
+border footprint in both skins. For example, width 18 with `artworkOutset = 1`
+creates 20x20 artwork within the same border. Anchor the returned icon by its
+center to retain placement; its native dimensions include the expansion.
 Use `crop = false` for atlases. `borderLayer` / `borderSublevel` set layering.
+For a button-parented action glyph rather than item artwork, set
+`actionIcon = true`: Flat applies the context accent; Modern uses gold when
+enabled and gray when disabled, following the parent's desaturation state.
+Alpha remains caller-owned. Ordinary icons keep their semantic colors
+and desaturation unchanged.
 Call `SetBorderColor(r, g, b, a)`, `SetBorderAlpha(alpha)`, and
 `SetBorderShown(boolean)` on the handle. `handle:SetShown` updates the icon and
 border together; when directly hiding the raw icon, hide its sibling border
@@ -330,6 +388,13 @@ example, a vertical separator sharing the bottom edge of a one-pixel horizontal
 stroke uses `pixelInsets = { bottom = 1 }` to meet it without gaps or overlap
 at any scale. A UI-unit bottom inset would instead grow with the frame scale.
 
+Optional `modernLayout` supplies a separate complete geometry definition for
+Modern: `bounds` (defaults to the component bounds), `orientation`, `align`,
+`thickness`, UI-unit insets, `pixelInsets`, and `clip`. Omitted geometry fields
+use the normal constructor defaults, not the outer definition. This keeps
+texture-aware Modern spacing independent of Flat's edge joins; switching skins
+selects the cached layout without replacing the separator or its visibility state.
+
 ## Pixel Primitives
 
 - `Skins.Pixel.Round(region, uiUnits, minPixels)` delegates layout rounding
@@ -338,11 +403,19 @@ at any scale. A UI-unit bottom inset would instead grow with the frame scale.
   `pixels * PixelUtil.GetPixelToUIUnitFactor() / effectiveScale`.
 - `Skins.Pixel.UpdateMetrics(metrics, root)` updates a caller-owned metrics
   table for repeated drawing at that root's effective scale.
+- `Skins.Pixel.GetCenteredRect(bounds, metrics, width, height)` returns
+  relative bottom-left `x, y, width, height` in UI units for a centered glyph.
+  Nominal dimensions are rounded to the bounds' odd/even physical-pixel counts,
+  giving equal whole-pixel margins within the same inward-snapped border bounds.
+  It returns nil when bounds are unresolved or have no drawable area; it does
+  not change the region. Refresh metrics/layout after scale or position changes.
 - `Skins.Pixel.CreateBorder(parent, bounds, layer, sublevel)` creates four
   solid edge textures and returns a stable border handle. Call
-  `border:Layout(metrics, physicalPixels, optionalClip)`,
+  `border:Layout(metrics, physicalPixels, optionalClip, optionalOutset)`,
   `border:SetColor(r, g, b, a)`, and `border:Hide()` as needed. Horizontal edges
-  own corners so translucent edges never overlap. Border handles are low-level
+  own corners so translucent edges never overlap. `optionalOutset` expands
+  the bounds in non-negative UI units before snapping; it defaults to zero.
+  Border handles are low-level
   primitives: their consumer is responsible for refreshing layout/metrics.
 
 Drawing rounds absolute screen edges inward to whole pixels, compensating for
@@ -373,7 +446,9 @@ It covers independent consumers/scales, both axes, fractional/negative origins,
 clipping, borders, pooled state, window constructors/slots/lifecycle, icon-free
 accordion layout, button/tab/checkbox/search states, semantic icon colors,
 scrollbar and popup boundaries, raw control access, display coalescing,
-allocation-free refreshes, Modern/Flat round trips, compact header geometry,
+allocation-free refreshes, Modern/Flat round trips, symmetric compact geometry,
+background dragging with separate action controls, text baselines, action
+colors, outside icon borders, native checkmark sizes and stepper offsets,
 combat/drag deferral and cancellation, and old-first/new-first/equal-MINOR loading.
 Simulated MINORs are applied in memory; source version numbers are not edited.
 

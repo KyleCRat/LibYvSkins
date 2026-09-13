@@ -18,10 +18,13 @@ end
 function definition.Initialize(handle, options)
     lib._InitializeControl(handle, options)
     handle.kind = options.kind
-    handle.parts.surface = lib._CreateSurface(handle, handle.target, handle.target)
+    if handle.kind ~= "resize" then
+        handle.parts.surface = lib._CreateSurface(handle, handle.target, handle.target)
+    end
     handle.parts.icon = handle.target:CreateTexture(nil, "OVERLAY")
     handle.parts.icon:SetSize(16, 16)
     handle.parts.icon:SetPoint("CENTER", handle.target, "CENTER", 0, 0)
+    lib._InitializeIconLayout(handle)
     handle.parts.icon:Hide()
     handle.parts.states = {}
     for _, slot in ipairs(SLOTS) do
@@ -50,4 +53,5 @@ function definition.ApplyAppearance(handle)
 end
 
 function definition.Layout(handle)
+    handle.context:_GetRenderer().NativeButtonLayout(handle)
 end

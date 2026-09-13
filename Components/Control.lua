@@ -85,6 +85,48 @@ function lib._CreateStateTexture(parent, layer)
     return texture
 end
 
+-- Library-owned button glyphs share one Flat placement policy. Preserve the
+-- nominal dimensions and sampling settings for a lossless Modern round trip.
+function lib._InitializeIconLayout(handle)
+    local icon = handle.parts.icon
+    handle.iconWidth, handle.iconHeight = icon:GetSize()
+    handle.iconSnap = icon:IsSnappingToPixelGrid()
+    handle.iconBias = icon:GetTexelSnappingBias()
+end
+
+function lib._LayoutCenteredIcon(handle, offsetX, offsetY)
+    local metrics = handle.root.metrics
+    local x, y, width, height = lib.Pixel.GetCenteredRect(
+        handle.target, metrics, handle.iconWidth, handle.iconHeight
+    )
+    if not x then return end
+    x, y = x + (offsetX or 0) * metrics.unit, y + (offsetY or 0) * metrics.unit
+    local icon = handle.parts.icon
+    if not handle.centeredIcon then
+        icon:ClearAllPoints()
+        icon:SetSnapToPixelGrid(false)
+        icon:SetTexelSnappingBias(0)
+    elseif handle.iconX == x and handle.iconY == y
+        and handle.drawIconWidth == width and handle.drawIconHeight == height then
+        return
+    end
+    handle.centeredIcon = true
+    handle.iconX, handle.iconY = x, y
+    handle.drawIconWidth, handle.drawIconHeight = width, height
+    icon:SetSize(width, height)
+    icon:SetPoint("BOTTOMLEFT", handle.target, "BOTTOMLEFT", x, y)
+end
+
+function lib._RestoreIconLayout(handle)
+    if not handle.centeredIcon then return end
+    local icon = handle.parts.icon
+    icon:ClearAllPoints()
+    icon:SetSize(handle.iconWidth, handle.iconHeight)
+    icon:SetSnapToPixelGrid(handle.iconSnap)
+    icon:SetTexelSnappingBias(handle.iconBias)
+    handle.centeredIcon = false
+end
+
 function lib._HookButtonState(handle)
     local button = handle.target
     button:HookScript("OnEnter", function()

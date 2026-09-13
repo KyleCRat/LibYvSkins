@@ -64,6 +64,25 @@ local function InnerRect(bounds, metrics, leftInset, rightInset, topInset, botto
         left, bottom
 end
 
+local function CenteredSize(size, span)
+    -- Equal integer margins require matching odd/even pixel counts. Choose
+    -- the nearest positive size with that parity (larger on an exact tie).
+    local parity = span % 2
+    return max(parity == 0 and 2 or 1, floor((size - parity) / 2 + 0.5) * 2 + parity)
+end
+
+function Pixel.GetCenteredRect(bounds, metrics, width, height)
+    local left, bottom, right, top, originX, originY = InnerRect(bounds, metrics)
+    if not left or right <= left or top <= bottom then return end
+    local unit = metrics.unit
+    local pixelWidth = CenteredSize(width / unit, right - left)
+    local pixelHeight = CenteredSize(height / unit, top - bottom)
+    -- Use the border's snapped absolute bounds, not the unsnapped frame center.
+    return (left + (right - left - pixelWidth) / 2) * unit - originX,
+        (bottom + (top - bottom - pixelHeight) / 2) * unit - originY,
+        pixelWidth * unit, pixelHeight * unit
+end
+
 local function DrawRect(texture, bounds, metrics, left, bottom, right, top, originX, originY, clip)
     if clip then
         local clipLeft, clipBottom, clipRight, clipTop = InnerRect(clip, metrics)
@@ -161,10 +180,12 @@ function Border:Hide()
     end
 end
 
-function Border:Layout(metrics, thickness, clip)
+function Border:Layout(metrics, thickness, clip, outset)
     assert(type(thickness) == "number" and thickness >= 0 and thickness == floor(thickness),
         "border thickness must be a non-negative integer number of physical pixels")
-    local left, bottom, right, top, originX, originY = InnerRect(self.bounds, metrics)
+    assert(outset == nil or (type(outset) == "number" and outset >= 0), "border outset must be non-negative")
+    outset = outset or 0
+    local left, bottom, right, top, originX, originY = InnerRect(self.bounds, metrics, -outset, -outset, -outset, -outset)
     if not left or thickness == 0 or right - left < thickness * 2 or top - bottom < thickness * 2 then
         self:Hide()
         return

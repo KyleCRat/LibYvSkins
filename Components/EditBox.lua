@@ -34,6 +34,7 @@ function definition.Initialize(handle, options)
         parts.background = lib._CreateStateTexture(editBox, "BACKGROUND")
         editBox:SetTextInsets(8, 8, 0, 0)
     end
+    handle.textInsets = { editBox:GetTextInsets() }
     if options.focusGlow ~= false then
         parts.focus = editBox:CreateTexture(nil, "BORDER")
         parts.focus:SetPoint("TOPLEFT", editBox, "TOPLEFT", -2, 3)

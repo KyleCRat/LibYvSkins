@@ -1128,7 +1128,7 @@ Test("two windows round-trip compact chrome without replacing controls or changi
         windows[index] = { frame = window, search = search, tab = tabHandle,
             height = window.content:GetHeight(), close = window.CloseButton:GetScript("OnClick"),
             width = window:GetWidth(), left = window:GetRect(), resize = window.resizeButton:GetScript("OnMouseDown") }
-        H.Equal(context:GetWindowContentReserve(window), 24)
+        H.Equal(context:GetWindowContentReserve(window), 19)
     end
     local frames, regions, hooks = #state.frames, state.regions, state.hooks
     for round = 1, 3 do
@@ -1138,8 +1138,7 @@ Test("two windows round-trip compact chrome without replacing controls or changi
             local frame = data.frame
             H.Equal(frame.TitleContainer:IsShown(), false)
             H.Equal(frame.PortraitContainer:GetAlpha(), 0)
-            H.Equal(frame.headerDrag:IsShown(), true)
-            H.Equal(frame.content:GetHeight(), data.height + 24)
+            H.Equal(frame.content:GetHeight(), data.height + 19)
             H.Equal(frame.CloseButton:GetWidth(), 28)
             H.Equal(data.search:GetHeight(), 28)
             H.Equal(data.search:GetText(), "keystone")
@@ -1173,7 +1172,7 @@ Test("two windows round-trip compact chrome without replacing controls or changi
     H.Equal(state.hooks, hooks)
 end)
 
-Test("Flat surfaces and two-pixel icon borders stay aligned through scrolling and display scales", function()
+Test("Flat surfaces and one-pixel icon borders stay aligned through scrolling and display scales", function()
     local state = H.New()
     local lib = state:Load()
     local context = lib:CreateContext("Pixels", { iconBorder = "border" })
@@ -1190,18 +1189,30 @@ Test("Flat surfaces and two-pixel icon borders stay aligned through scrolling an
     local frames, regions, hooks, fonts, atlases = #state.frames, state.regions, state.hooks, state.fontWrites, state.atlasWrites
     for _, height in ipairs({ 1080, 1440, 2160 }) do
         state.height = height
-        for _, scale in ipairs({ 0.5, 0.75, 1, 1.25, 1.5 }) do
+        for _, scale in ipairs({ 0.32, 0.5, 0.75, 1, 1.25, 1.5 }) do
             parent.scale = scale
             lib:RefreshDisplay()
             for index = 1, 40 do
                 parent.bottom = parent.bottom + 0.13
                 iconHandle:RefreshGeometry()
                 editHandle:RefreshGeometry()
+                local iconLeft, iconBottom, iconRight, iconTop = H.Rect(icon, height)
+                H.Equal(icon:GetWidth(), 23)
+                H.Equal(icon:GetHeight(), 23)
                 for edgeIndex, edge in ipairs(iconHandle.parts.flatBorder.edges) do
                     H.Aligned(edge, height)
                     local left, bottom, right, top = H.Rect(edge, height)
-                    H.Near(edgeIndex < 3 and top - bottom or right - left, 2)
+                    H.Near(edgeIndex < 3 and top - bottom or right - left, 1)
                     H.Near(edge.color[4], 0.4)
+                    if edgeIndex == 1 then
+                        assert(bottom >= iconTop - 0.00001, "top stroke must remain above the art")
+                    elseif edgeIndex == 2 then
+                        assert(top <= iconBottom + 0.00001, "bottom stroke must remain below the art")
+                    elseif edgeIndex == 3 then
+                        assert(right <= iconLeft + 0.00001, "left stroke must remain outside the art")
+                    else
+                        assert(left >= iconRight - 0.00001, "right stroke must remain outside the art")
+                    end
                 end
                 for edgeIndex, edge in ipairs(editHandle.parts.surface.border.edges) do
                     H.Aligned(edge, height)
@@ -1225,6 +1236,43 @@ Test("Flat surfaces and two-pixel icon borders stay aligned through scrolling an
     state:Flush()
     H.Equal(iconHandle.parts.border:IsShown(), true)
     H.Equal(iconHandle.parts.flatBorder.edges[1]:IsShown(), false)
+end)
+
+Test("icon outsets preserve footer footprints and clip at viewport edges without overlapping corners", function()
+    local state = H.New()
+    local lib = state:Load()
+    local context = lib:CreateContext("IconBounds", { iconBorder = "border" })
+    local parent = state:Region(0.17, 0.31, 300, 200, 1)
+    local clip = state:Region(0, 0, 180, 180, 1)
+    local icon, handle = context:CreateIcon(parent, { width = 18, clip = clip, borderLayer = "BORDER", borderSublevel = 2 })
+    icon:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 20, 20)
+    context:RequestSkin("flat")
+    state:Flush()
+    local modernLeft, modernBottom, modernRight, modernTop = H.Rect(handle.parts.border, state.height)
+    local border = handle.parts.flatBorder
+    for index, edge in ipairs(border.edges) do
+        H.Equal(edge.layer, "BORDER")
+        H.Equal(edge.sublevel, 2)
+        H.Aligned(edge, state.height)
+        local left, bottom, right, top = H.Rect(edge, state.height)
+        assert(left >= modernLeft and bottom >= modernBottom and right <= modernRight and top <= modernTop)
+        for otherIndex = index + 1, #border.edges do
+            local l, b, r, t = H.Rect(border.edges[otherIndex], state.height)
+            assert(math.min(right, r) <= math.max(left, l) + 0.00001
+                or math.min(top, t) <= math.max(bottom, b) + 0.00001, "border corners must not overlap")
+        end
+    end
+    icon:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 166, -5)
+    handle:RefreshGeometry()
+    local clipLeft, clipBottom, clipRight, clipTop = H.Rect(clip, state.height)
+    for _, edge in ipairs(border.edges) do
+        if edge:IsShown() then
+            local left, bottom, right, top = H.Rect(edge, state.height)
+            assert(left >= clipLeft and bottom >= clipBottom and right <= clipRight and top <= clipTop)
+        end
+    end
+    H.Fails(function() border:Layout(handle.root.metrics, 2, nil, -1) end)
+    H.Fails(function() border:Layout(handle.root.metrics, 2, nil, "3") end)
 end)
 
 Test("moving resizing and scaling park skin changes until their end notifications", function()
@@ -1281,6 +1329,7 @@ end)
 
 Test("Flat button focus checkbox and accordion states restore cleanly and reuse pooled art", function()
     local state = H.New()
+    state.atlasSizes["common-icon-checkmark-yellow"] = { 24, 24 }
     local context = state:Load():CreateContext("States", { font = "test-font" })
     local parent = state:Region(0, 0, 500, 400, 1)
     local button, buttonHandle = context:CreateButton(parent, { icon = "icon" })
@@ -1292,13 +1341,18 @@ Test("Flat button focus checkbox and accordion states restore cleanly and reuse 
     edit:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 0, 80)
     header:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 0, 120)
     check:SetChecked(true)
+    local checkWidth, checkHeight = checkHandle.parts.checked:GetSize()
     edit:SetFocus()
     headerHandle:SetExpanded(false)
     context:RequestSkin("flat")
     state:Flush()
     H.Equal(check:GetChecked(), true)
-    H.Equal(checkHandle.parts.checked:GetScale(), 1)
-    H.Equal(checkHandle.parts.checked:GetWidth(), 16)
+    H.Equal(checkHandle.parts.checked:GetScale(), 0.75)
+    H.Equal(checkHandle.parts.checked:GetWidth(), checkWidth)
+    H.Equal(checkHandle.parts.checked:GetHeight(), checkHeight)
+    H.Equal(checkHandle.parts.checked:GetAtlas(), "common-icon-checkmark-yellow")
+    H.Equal(checkHandle.parts.checked.points.CENTER[3], 2)
+    H.Near(checkHandle.parts.checked.points.CENTER[4], 2 - state.lib.Pixel.GetPhysicalSize(checkHandle.parts.checked, 1))
     H.Equal(editHandle.parts.focus:IsShown(), false)
     H.Equal(editHandle.parts.surface.border.edges[1].color[1], 1)
     local fonts, atlases, regions, hooks = state.fontWrites, state.atlasWrites, state.regions, state.hooks
@@ -1372,6 +1426,380 @@ Test("Flat scrollbar popup and glow restoration preserves native actions and hid
     H.Equal(glowHandle.parts.surface.border.edges[1]:IsShown(), false)
 end)
 
+Test("compact windows have symmetric padding, an outlined inset and left-aligned controls", function()
+    local state = H.New()
+    local context = state:Load():CreateContext("Spacing")
+    local parent = state:Region(0, 0, 1920, 1080, 1)
+    local window = context:CreateWindow(parent, { minWidth = 300, minHeight = 200, compactHeader = true })
+    window:SetSize(700, 500)
+    window:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 13, 27)
+    local button = context:CreateButton(window.header, { width = 28, height = 28 })
+    local search = context:CreateSearchBox(window.header)
+    context:SetHeaderControls(window, { button }, search)
+    window:Show()
+    H.Equal(context:GetWindowChromeWidth(window), 16)
+    context:RequestSkin("flat")
+    state:Flush()
+    local left, bottom, width, height = window:GetRect()
+    local hLeft, hBottom, hWidth, hHeight = window.header:GetRect()
+    H.Near(hLeft - left, 8)
+    H.Near(left + width - hLeft - hWidth, 8)
+    H.Near(bottom + height - hBottom - hHeight, 8)
+    local fLeft, fBottom, fWidth, fHeight = window.footer:GetRect()
+    H.Near(fLeft - left, 8)
+    H.Near(left + width - fLeft - fWidth, 24, "footer reserves the corner grip plus outer padding")
+    H.Near(fBottom - bottom, 8)
+    H.Near(fHeight, 24)
+    local iLeft, iBottom, iWidth, iHeight = window.Inset:GetRect()
+    H.Near(iLeft - left, 8)
+    H.Near(left + width - iLeft - iWidth, 8)
+    H.Near(hBottom - iBottom - iHeight, 4)
+    H.Near(iBottom - fBottom - fHeight, 4)
+    H.Near(button:GetRect() - hLeft, 0)
+    H.Equal(context:GetWindowChromeWidth(window), 20)
+    local contentSurface = context._components[window].parts.contentSurface
+    for _, edge in ipairs(contentSurface.border.edges) do
+        H.Equal(edge:IsShown(), true)
+        H.Aligned(edge, state.height)
+    end
+    H.Equal(context._components[window.resizeButton].parts.surface, nil, "resize glyph has no box")
+    context:RequestSkin("modern")
+    state:Flush()
+    H.Equal(window.header.points.TOPLEFT[3], 58)
+    H.Equal(window.header.points.TOPLEFT[4], -28)
+    H.Equal(window.footer.points.BOTTOMLEFT[3], 3)
+    H.Equal(window.footer.points.BOTTOMLEFT[4], 4)
+    H.Equal(window.footer.points.BOTTOMRIGHT[3], -15)
+    H.Equal(context:GetWindowChromeWidth(window), 16)
+    for _, edge in ipairs(contentSurface.border.edges) do H.Equal(edge:IsShown(), false) end
+end)
+
+Test("background dragging works in both skins without claiming child actions or moving in combat", function()
+    local state = H.New()
+    local context = state:Load():CreateContext("BackgroundDrag")
+    local parent = state:Region(0, 0, 1920, 1080, 1)
+    local stops, clicks = 0, 0
+    local window = context:CreateWindow(parent, {
+        minWidth = 300, minHeight = 200, compactHeader = true,
+        onMoveStopped = function() stops = stops + 1 end,
+    })
+    local region = state.env.CreateFrame("Frame", nil, window.content)
+    local mouseUp = function() clicks = clicks + 1 end
+    region:SetScript("OnMouseUp", mouseUp)
+    context:RegisterWindowDragRegion(window, region)
+    local hooks = state.hooks
+    context:RegisterWindowDragRegion(window, region)
+    H.Equal(state.hooks, hooks, "registration is idempotent")
+    H.Equal(region:GetScript("OnMouseUp"), mouseUp)
+    local action = state.env.CreateFrame("Button", nil, region)
+    local pickup = function(self) self.pickedUp = true end
+    action:SetScript("OnDragStart", pickup)
+    H.Fails(function() context:RegisterWindowDragRegion(window, action) end)
+    H.Equal(action:GetScript("OnDragStart"), pickup)
+    for _, skin in ipairs({ "modern", "flat" }) do
+        context:RequestSkin(skin)
+        state:Flush()
+        window:Show()
+        for _, background in ipairs({ window, window.TitleContainer, window.header,
+            window.Inset, window.content, window.footer, region }) do
+            background:RunScript("OnDragStart", "LeftButton")
+            H.Equal(window.moving, true)
+            local before = stops
+            background:RunScript("OnDragStop", "LeftButton")
+            background:RunScript("OnDragStop", "LeftButton")
+            H.Equal(stops, before + 1)
+            H.Equal(window.moving, false)
+        end
+        action:RunScript("OnDragStart", "LeftButton")
+        H.Equal(action.pickedUp, true)
+        H.Equal(window.moving, false)
+        state.combat = true
+        region:RunScript("OnDragStart", "LeftButton")
+        H.Equal(window.moving, false)
+        state.combat = false
+        region:RunScript("OnDragStart", "LeftButton")
+        window:Hide()
+        H.Equal(window.moving, false)
+    end
+    region:RunScript("OnMouseUp")
+    H.Equal(clicks, 1)
+end)
+
+Test("Flat text baselines and action colors restore without tinting semantic item art", function()
+    local state = H.New()
+    local context = state:Load():CreateContext("Optics", {
+        iconBorder = "border", tokens = { accent = { r = 0.1, g = 0.8, b = 0.9 } },
+    })
+    local parent = state:Region(0, 0, 1920, 1080, 1)
+    local window = context:CreateWindow(parent, { minWidth = 400, minHeight = 300, compactHeader = true })
+    local tab, tabHandle = context:CreateTab(window.header)
+    local search = context:CreateSearchBox(window.header)
+    local minus, minusHandle = context:CreateButton(window.footer, { icon = state.lib:GetIconTexture("minus") })
+    local purchase = state.env.CreateFrame("Button", nil, window.footer)
+    local purchaseIcon = context:CreateIcon(purchase, { actionIcon = true, crop = false, width = 18 })
+    purchaseIcon:SetTexture(state.lib:GetIconTexture("plus"))
+    local item = context:CreateIcon(window.content)
+    item:SetVertexColor(0.8, 0.7, 0.6, 0.9)
+    item:SetDesaturated(true)
+    local clearClick = search.clearButton:GetScript("OnClick")
+    window:Show()
+    search:SetText("potion")
+    search:SetFocus()
+    context:RequestSkin("flat")
+    state:Flush()
+    H.Equal(tabHandle.parts.label.points.CENTER[4], -1)
+    H.Equal(select(3, search:GetTextInsets()), 2)
+    H.Equal(search.Instructions.points.TOPLEFT[4], -1)
+    H.Equal(search.Instructions.points.BOTTOMRIGHT[4], -1)
+    for _, icon in ipairs({ minusHandle.parts.icon, purchaseIcon, search.clearButton.Icon,
+        context._components[window.CloseButton].parts.icon }) do
+        H.Near(icon.color[1], 0.1)
+        H.Near(icon.color[2], 0.8)
+        H.Near(icon.color[3], 0.9)
+    end
+    H.Equal(purchaseIcon.desaturated, true)
+    purchase:SetEnabled(false)
+    purchase:SetEnabled(true)
+    H.Equal(purchaseIcon.desaturated, true)
+    minus:SetEnabled(false)
+    H.Equal(minusHandle.parts.icon:GetAlpha(), 0.5)
+    H.Equal(search.clearButton:GetScript("OnClick"), clearClick)
+    H.Equal(search.clearButton.Icon:GetAlpha(), 0.5)
+    H.Equal(search:GetText(), "potion")
+    H.Equal(search:HasFocus(), true)
+    H.Near(item.color[1], 0.8)
+    H.Equal(item.desaturated, true)
+    context:RequestSkin("modern")
+    state:Flush()
+    H.Equal(tabHandle.parts.label.points.CENTER[4], 1)
+    H.Equal(select(3, search:GetTextInsets()), 0)
+    H.Equal(search.Instructions.points.TOPLEFT[4], 0)
+    H.Equal(search.clearButton.Icon.color[1], 1)
+    H.Equal(minusHandle.parts.icon.color[1], 0.5)
+    minus:SetEnabled(true)
+    minus:RunScript("OnEnter")
+    for _, icon in ipairs({ minusHandle.parts.icon, purchaseIcon }) do
+        H.Equal(icon.color[1], 1)
+        H.Near(icon.color[2], 0.82)
+        H.Equal(icon.color[3], 0)
+    end
+    H.Equal(purchaseIcon.color[1], 1)
+    H.Equal(purchaseIcon.desaturated, false)
+    purchase:SetEnabled(false)
+    H.Equal(purchaseIcon.desaturated, true)
+    H.Equal(purchaseIcon.color[1], 0.5)
+    H.Near(item.color[1], 0.8)
+    H.Equal(item.desaturated, true)
+end)
+
+Test("Flat steppers center directional glyphs and restore native size and anchors", function()
+    local state = H.New()
+    local context = state:Load():CreateContext("ScrollCenter")
+    local parent = state:Region(0, 0, 500, 400, 1)
+    local bar, handle = context:CreateScrollBar(parent)
+    bar:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -8, -2)
+    bar:SetPoint("BOTTOMRIGHT", parent, "BOTTOMRIGHT", -8, 2)
+    context:RequestSkin("flat")
+    state:Flush()
+    for _, button in ipairs({ bar.Back, bar.Forward }) do
+        local bx, by, bw, bh = button:GetRect()
+        local x, y, width, height = button.Texture:GetRect()
+        H.Near(x + width / 2, bx + bw / 2)
+        H.Near(y + height / 2, by + bh / 2)
+        H.Equal(width, 12)
+        H.Equal(height, 12)
+        H.Equal(button:GetWidth(), 17, "native hit area remains intact")
+        button:RunScript("OnMouseDown")
+        local pressedX, pressedY = button.Texture:GetRect()
+        H.Near(pressedX - x, 1)
+        H.Near(pressedY - y, -1)
+        button:RunScript("OnMouseUp")
+        H.Near(button.Texture:GetRect(), x)
+    end
+    context:RequestSkin("modern")
+    state:Flush()
+    for _, button in ipairs({ bar.Back, bar.Forward }) do
+        H.Equal(button.Texture:GetWidth(), 17)
+        H.Equal(button.Texture:GetHeight(), 11)
+        H.Equal(button.Texture:GetNumPoints(), 1)
+        H.Equal(button.Texture.points.TOPLEFT[3], 0)
+        H.Equal(button.Texture.points.TOPLEFT[4], 0)
+        H.Equal(button.Texture.rotation, 0)
+        H.Equal(button.Texture:GetAtlas(), "native-stepper")
+        local x, y = button.Texture:GetRect()
+        button:RunScript("OnMouseDown")
+        local pressedX, pressedY = button.Texture:GetRect()
+        H.Near(pressedX - x, 1)
+        H.Near(pressedY - y, -1)
+        button:RunScript("OnMouseUp")
+    end
+end)
+
+Test("owned close media follows the winning loader and restores native Modern artwork", function()
+    for _, addonName in ipairs({ "YvBags", "AnotherConsumer", "LibYvSkins-1.0" }) do
+        local state = H.New()
+        state.addonName = addonName
+        local lib = state:Load()
+        local context = lib:CreateContext("CloseMedia")
+        local window = context:CreateWindow(state.env.CreateFrame("Frame"), { minWidth = 300, minHeight = 200 })
+        local handle = context._components[window.CloseButton]
+        local native = window.CloseButton:GetNormalTexture()
+        local nativeAtlas, nativeTexture = native:GetAtlas(), native:GetTexture()
+        local folder = addonName == "LibYvSkins-1.0" and "" or "Libs\\LibYvSkins-1.0\\"
+        local expected = "Interface\\AddOns\\" .. addonName .. "\\" .. folder .. "Media\\Textures\\Vertex-Close.tga"
+        state.addonName = "LaterConsumer"
+        state:Load()
+        H.Equal(lib:GetIconTexture("close"), expected, "a skipped library copy cannot replace the media root")
+        context:RequestSkin("flat")
+        state:Flush()
+        H.Equal(handle.parts.icon:GetTexture(), expected)
+        H.Equal(handle.parts.icon:GetAtlas(), nil)
+        H.Equal(handle.parts.icon:IsShown(), true)
+        context:RequestSkin("modern")
+        state:Flush()
+        H.Equal(handle.parts.icon:IsShown(), false)
+        H.Equal(native:GetAtlas(), nativeAtlas)
+        H.Equal(native:GetTexture(), nativeTexture)
+        H.Equal(native:GetAlpha(), 1)
+    end
+end)
+
+Test("Flat action glyphs stay centered with a separate native checkmark offset", function()
+    local state = H.New()
+    state.atlasSizes["common-icon-checkmark-yellow"] = { 24, 24 }
+    local context = state:Load():CreateContext("IconBaseline")
+    local parent = state:Region(0, 0, 1920, 1080, 1)
+    local window = context:CreateWindow(parent, { minWidth = 300, minHeight = 200, compactHeader = true })
+    window:SetSize(700, 500)
+    window:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 10.31, 20.13)
+    local button, handle = context:CreateButton(window.header, {
+        icon = "action", text = "Action", width = 28, height = 28,
+        pressIcon = true, geometryRoot = window,
+    })
+    local check, checkHandle = context:CreateCheckbox(window.footer, { checkmarkScale = 0.75, geometryRoot = window })
+    button:SetPoint("CENTER", window.header, "CENTER", 0, 0)
+    check:SetPoint("CENTER", window.footer, "CENTER", 0, 0)
+    window:Show()
+    context:RequestSkin("flat")
+    state:Flush()
+    local textY = handle.parts.label.points.CENTER[4]
+    local closeHandle = context._components[window.CloseButton]
+    local function CheckCentered(appearance, height)
+        local icon = appearance.parts.icon
+        local edges = appearance.parts.surface.border.edges
+        local left, _, right, top = H.Rect(edges[1], height)
+        local _, bottom = H.Rect(edges[2], height)
+        local iconLeft, iconBottom, iconRight, iconTop = H.Rect(icon, height)
+        H.Aligned(icon, height)
+        H.Near(iconLeft - left, right - iconRight, "horizontal margins differ")
+        H.Near(iconBottom - bottom, top - iconTop, "vertical margins differ")
+        local unit = appearance.root.metrics.unit
+        assert(math.abs((icon:GetWidth() - appearance.iconWidth) / unit) <= 1.00001)
+        assert(math.abs((icon:GetHeight() - appearance.iconHeight) / unit) <= 1.00001)
+        H.Equal(icon:IsSnappingToPixelGrid(), false)
+        H.Equal(icon:GetTexelSnappingBias(), 0)
+    end
+    for _, height in ipairs({ 1080, 1440, 2160 }) do
+        state.height = height
+        state.lib.Pixel.InvalidateDisplay()
+        for _, scale in ipairs({ 0.5, 0.75, 1, 1.25, 1.5 }) do
+            window:SetScale(scale)
+            context:RefreshGeometry(window)
+            for index = 1, 3 do
+                local left, bottom = H.Rect(handle.parts.icon, height)
+                button:RunScript("OnEnter")
+                button:RunScript("OnMouseDown", "LeftButton")
+                local pressedLeft, pressedBottom = H.Rect(handle.parts.icon, height)
+                H.Near(pressedLeft - left, 1, "pressed offset is one physical pixel")
+                H.Near(pressedBottom - bottom, -1)
+                button:RunScript("OnMouseUp", "LeftButton")
+                button:RunScript("OnLeave")
+                CheckCentered(handle, height)
+                local checkY = 2 - state.lib.Pixel.GetPhysicalSize(checkHandle.parts.checked, 1)
+                H.Near(checkHandle.parts.checked.points.CENTER[4], checkY)
+                H.Near(checkHandle.parts.disabledChecked.points.CENTER[4], checkY)
+                CheckCentered(closeHandle, height)
+                H.Equal(handle.parts.label.points.CENTER[4], textY)
+            end
+        end
+    end
+    context:RequestSkin("modern")
+    state:Flush()
+    H.Equal(handle.parts.icon.points.CENTER[4], 0)
+    H.Equal(checkHandle.parts.checked.points.CENTER[4], 2)
+    H.Equal(closeHandle.parts.icon.points.CENTER[4], 0)
+    for _, appearance in ipairs({ handle, closeHandle }) do
+        H.Near(appearance.parts.icon:GetWidth(), appearance.iconWidth)
+        H.Near(appearance.parts.icon:GetHeight(), appearance.iconHeight)
+        H.Equal(appearance.parts.icon:GetNumPoints(), 1)
+        H.Equal(appearance.parts.icon:IsSnappingToPixelGrid(), appearance.iconSnap)
+        H.Equal(appearance.parts.icon:GetTexelSnappingBias(), appearance.iconBias)
+    end
+end)
+
+Test("Flat grip is flush with the window corner and footer reserves clearance", function()
+    local state = H.New()
+    local context = state:Load():CreateContext("FooterClearance")
+    local parent = state:Region(0, 0, 1920, 1080, 1)
+    for _, compact in ipairs({ true, false }) do
+        context:RequestSkin("modern")
+        state:Flush()
+        local window = context:CreateWindow(parent, { minWidth = 300, minHeight = 200, compactHeader = compact })
+        window:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 10, 20)
+        window:SetSize(700, 500)
+        window:Show()
+        context:RequestSkin("flat")
+        state:Flush()
+        local wx, wy, ww = window:GetRect()
+        local gx, gy, gw = window.resizeButton:GetRect()
+        H.Near(gx + gw, wx + ww)
+        H.Near(gy, wy)
+        if compact then
+            local fx, _, fw = window.footer:GetRect()
+            H.Near(gx - (fx + fw), 8, "footer leaves padding before the grip")
+        end
+        context:RequestSkin("modern")
+        state:Flush()
+        H.Equal(window.resizeButton.points.BOTTOMRIGHT[3], -2)
+        H.Equal(window.resizeButton.points.BOTTOMRIGHT[4], 3)
+        H.Equal(window.footer.points.BOTTOMRIGHT[3], -15)
+    end
+end)
+
+Test("Flat scrollbar centers in its gutter and halves arrow gaps without changing native input", function()
+    local state = H.New()
+    local context = state:Load():CreateContext("ScrollbarGutter")
+    local parent = state:Region(0, 0, 500, 400, 1)
+    local bar, handle = context:CreateScrollBar(parent, {
+        anchor = parent, gutterWidth = 22, rightOffset = -8, topOffset = -2, bottomOffset = 2,
+    })
+    H.Equal(bar.points.TOPRIGHT[3], -8)
+    H.Equal(bar.Track.points.TOP[4], -19)
+    local drag, click = bar.Track.Thumb:GetScript("OnDragStart"), bar.Forward:GetScript("OnClick")
+    for index = 1, 3 do
+        context:RequestSkin("flat")
+        state:Flush()
+        local x, _, width = bar:GetRect()
+        local px, _, pw = parent:GetRect()
+        H.Near(x + width / 2, px + pw - 11)
+        local _, trackY, _, trackHeight = bar.Track:GetRect()
+        local _, backY = bar.Back.Texture:GetRect()
+        local _, forwardY, _, forwardHeight = bar.Forward.Texture:GetRect()
+        H.Near(backY - (trackY + trackHeight), 3.5)
+        H.Near(trackY - (forwardY + forwardHeight), 3.5)
+        H.Equal(bar.Track.Thumb:GetScript("OnDragStart"), drag)
+        H.Equal(bar.Forward:GetScript("OnClick"), click)
+        H.Equal(handle.layoutSkin, "flat")
+        context:RequestSkin("modern")
+        state:Flush()
+        H.Equal(bar.points.TOPRIGHT[3], -8)
+        H.Equal(bar.points.TOPRIGHT[4], -2)
+        H.Equal(bar.points.BOTTOMRIGHT[4], 2)
+        H.Equal(bar.Track.points.TOP[4], -19)
+        H.Equal(bar.Track.points.BOTTOM[4], 19)
+    end
+end)
+
 Test("compact layout is opt-in and header minimums follow shown control widths", function()
     local state = H.New()
     local context = state:Load():CreateContext("Layout")
@@ -1385,7 +1813,6 @@ Test("compact layout is opt-in and header minimums follow shown control widths",
     state:Flush()
     H.Equal(context:IsWindowCompact(window), false)
     H.Equal(window.TitleContainer:IsShown(), true)
-    H.Equal(window.headerDrag:IsShown(), false)
     tab:Hide()
     context:LayoutHeader(window)
     H.Equal(context:GetWindowMinimumWidth(window), 160)

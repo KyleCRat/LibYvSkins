@@ -42,10 +42,15 @@ function definition.Validate(texture, parts, options)
     end
     assert(options.alpha == nil or (type(options.alpha) == "number" and options.alpha >= 0 and options.alpha <= 1),
         "separator alpha must be between zero and one")
+    if options.modernLayout ~= nil then
+        local modern = options.modernLayout
+        assert(type(modern) == "table" and modern.modernLayout == nil, "modernLayout must be a non-nested layout table")
+        definition.Validate(texture, { bounds = modern.bounds or parts.bounds }, modern)
+    end
 end
 
-function definition.Initialize(handle, options)
-    handle.geometry = {
+local function CopyGeometry(options)
+    local geometry = {
         orientation = options.orientation or "horizontal",
         align = options.align or "center",
         thickness = options.thickness or 1,
@@ -56,18 +61,31 @@ function definition.Initialize(handle, options)
         clip = options.clip,
     }
     if options.pixelInsets then
-        handle.geometry.pixelInsets = {
+        geometry.pixelInsets = {
             left = options.pixelInsets.left or 0,
             right = options.pixelInsets.right or 0,
             top = options.pixelInsets.top or 0,
             bottom = options.pixelInsets.bottom or 0,
         }
     end
+    return geometry
+end
+
+function definition.Initialize(handle, options)
+    handle.geometry = CopyGeometry(options)
+    if options.modernLayout then
+        handle.modernBounds = options.modernLayout.bounds or handle.parts.bounds
+        handle.modernGeometry = CopyGeometry(options.modernLayout)
+    end
     lib.Pixel.PrepareTexture(handle.target)
 end
 
 function definition.Layout(handle)
-    lib.Pixel.LayoutLine(handle.target, handle.parts.bounds, handle.root.metrics, handle.geometry)
+    if handle.modernGeometry and handle.context:GetAppliedSkin() == "modern" then
+        lib.Pixel.LayoutLine(handle.target, handle.modernBounds, handle.root.metrics, handle.modernGeometry)
+    else
+        lib.Pixel.LayoutLine(handle.target, handle.parts.bounds, handle.root.metrics, handle.geometry)
+    end
 end
 
 function definition.ApplyAppearance(handle)
