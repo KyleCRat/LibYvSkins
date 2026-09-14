@@ -286,6 +286,7 @@ function Modern.EditBox(handle)
         parts.instructions:ClearAllPoints()
         parts.instructions:SetPoint("TOPLEFT", editBox, "TOPLEFT", handle.textInsets[1], 0)
         parts.instructions:SetPoint("BOTTOMRIGHT", editBox, "BOTTOMRIGHT", -handle.textInsets[2], 0)
+        parts.clearButton:SetPoint("RIGHT", editBox, "RIGHT", -4, 1)
         parts.clearButton.Icon:SetAtlas("common-search-clearbutton", false)
         parts.clearButton.Icon:SetVertexColor(1, 1, 1, 1)
     end

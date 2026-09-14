@@ -57,7 +57,7 @@ end
 function Flat.Button(handle)
     HideButtonArt(handle.parts)
     handle.parts.label:ClearAllPoints()
-    handle.parts.label:SetPoint("CENTER", handle.target, "CENTER", 0, handle.labelOffsetY + TEXT_OFFSET_Y * 2)
+    handle.parts.label:SetPoint("CENTER", handle.target, "CENTER", 0, handle.labelOffsetY + TEXT_OFFSET_Y)
     if handle.parts.checked then
         -- Keep Blizzard's checkmark dimensions; its optical offset is separate.
         handle.parts.checked:SetDesaturated(true)
@@ -105,11 +105,13 @@ function Flat.EditBox(handle)
     if handle.parts.focus then handle.parts.focus:Hide() end
     local edit = handle.target
     local insets = handle.textInsets
-    edit:SetTextInsets(insets[1], insets[2], insets[3] - TEXT_OFFSET_Y * 2, insets[4])
+    local textOffsetY = handle.parts.instructions and 0 or TEXT_OFFSET_Y
+    edit:SetTextInsets(insets[1], insets[2], insets[3] - textOffsetY * 2, insets[4])
     if handle.parts.instructions then
         handle.parts.instructions:ClearAllPoints()
-        handle.parts.instructions:SetPoint("TOPLEFT", edit, "TOPLEFT", insets[1], TEXT_OFFSET_Y)
-        handle.parts.instructions:SetPoint("BOTTOMRIGHT", edit, "BOTTOMRIGHT", -insets[2], TEXT_OFFSET_Y)
+        handle.parts.instructions:SetPoint("TOPLEFT", edit, "TOPLEFT", insets[1], textOffsetY)
+        handle.parts.instructions:SetPoint("BOTTOMRIGHT", edit, "BOTTOMRIGHT", -insets[2], textOffsetY)
+        handle.parts.clearButton:SetPoint("RIGHT", edit, "RIGHT", -4, 0)
         handle.parts.clearButton.Icon:SetTexture(lib._media.close)
         handle.parts.clearButton.Icon:SetVertexColor(handle.context:GetColor(handle.colorToken))
     end

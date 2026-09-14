@@ -68,7 +68,10 @@
   coverage while removing mock-only glyph-recovery assertions.
 - Kept selected button labels at their resting baseline. Modern retains its
   press offset only while actively pressed and unselected; Flat labels stay
-  stationary. Native release offsets no longer compete with renderer anchors.
+  stationary. Raised Flat button labels and search text/placeholders by one
+  UI pixel and lowered the search clear button by one UI pixel, leaving
+  Modern, other edit boxes, and other icons unchanged. Native release offsets
+  no longer compete with renderer anchors.
 - Raised Modern tertiary-square button glyphs by one physical pixel to balance
   the atlas's bottom-heavy border, without changing Flat or press feedback.
 - Reduced compact footers to 24 units with a 4-unit content gap and matching
