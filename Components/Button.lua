@@ -49,6 +49,10 @@ function definition.Initialize(handle, options)
     handle.disabledIconAlpha = options.disabledIconAlpha or 0.5
     handle.checkmarkScale = options.checkmarkScale or 1.25
     handle.labelOffsetY = options.labelOffsetY or 1
+    -- Renderers own label anchors, including press feedback. Native push/pop
+    -- offsets would shift a freshly anchored label again after selection changes.
+    handle.pushedTextOffsetX, handle.pushedTextOffsetY = button:GetPushedTextOffset()
+    button:SetPushedTextOffset(0, 0)
     parts.normal = lib._CreateStateTexture(button, "BACKGROUND")
     parts.hover = lib._CreateStateTexture(button, "BORDER")
     parts.pressed = lib._CreateStateTexture(button, "BORDER")

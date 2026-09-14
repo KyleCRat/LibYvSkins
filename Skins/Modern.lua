@@ -168,7 +168,6 @@ function Modern.Button(handle)
     local atlases = BUTTON_ATLASES[handle.variant]
     local selected = handle.selected
     parts.label:ClearAllPoints()
-    parts.label:SetPoint("CENTER", button, "CENTER", 0, handle.labelOffsetY)
     parts.normal:SetAlpha(1)
     parts.hover:SetAlpha(1)
     parts.pressed:SetAlpha(1)
@@ -193,8 +192,12 @@ end
 function Modern.ButtonState(handle)
     local button, parts = handle.target, handle.parts
     local enabled, selected = button:IsEnabled(), handle.selected
+    local pressed = enabled and not selected and handle.pressed
+    parts.label:SetPoint("CENTER", button, "CENTER",
+        pressed and handle.pushedTextOffsetX or 0,
+        handle.labelOffsetY + (pressed and handle.pushedTextOffsetY or 0))
     parts.hover:SetShown(enabled and not selected and handle.hovered and not handle.pressed)
-    parts.pressed:SetShown(enabled and not selected and handle.pressed)
+    parts.pressed:SetShown(pressed)
     parts.disabled:SetShown(not enabled)
     local r, g, b = GOLD_R, GOLD_G, GOLD_B
     if not enabled then

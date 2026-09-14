@@ -101,6 +101,8 @@ function Harness.New()
     function Region:SetMaxLines(value) self.maxLines = value end
     function Region:SetFontString(value) self.fontString = value end
     function Region:GetFontString() return self.fontString end
+    function Region:SetPushedTextOffset(x, y) self.pushedTextOffset = { x, y } end
+    function Region:GetPushedTextOffset() return unpack(self.pushedTextOffset or { 1, -1 }) end
     function Region:SetText(value)
         if self.fontString then self.fontString:SetText(value) else self.text = value end
     end

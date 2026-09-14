@@ -103,16 +103,12 @@ function lib._LayoutCenteredIcon(handle, offsetX, offsetY)
     x, y = x + (offsetX or 0) * metrics.unit, y + (offsetY or 0) * metrics.unit
     local icon = handle.parts.icon
     if not handle.centeredIcon then
-        icon:ClearAllPoints()
         icon:SetSnapToPixelGrid(false)
         icon:SetTexelSnappingBias(0)
-    elseif handle.iconX == x and handle.iconY == y
-        and handle.drawIconWidth == width and handle.drawIconHeight == height then
-        return
+        handle.centeredIcon = true
     end
-    handle.centeredIcon = true
-    handle.iconX, handle.iconY = x, y
-    handle.drawIconWidth, handle.drawIconHeight = width, height
+    -- Unchanged desired geometry does not prove the client resolved the glyph.
+    icon:ClearAllPoints()
     icon:SetSize(width, height)
     icon:SetPoint("BOTTOMLEFT", handle.target, "BOTTOMLEFT", x, y)
 end

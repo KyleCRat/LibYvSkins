@@ -62,6 +62,13 @@
   every inactive-skin renderer method disabled.
 
 ### Fixed
+- Removed the Flat glyph-position cache so existing layout/state refreshes
+  always reapply anchors and size. Retained pixel alignment and separate
+  sampling setup without adding polling. Kept alignment and skin-restoration
+  coverage while removing mock-only glyph-recovery assertions.
+- Kept selected button labels at their resting baseline. Modern retains its
+  press offset only while actively pressed and unselected; Flat labels stay
+  stationary. Native release offsets no longer compete with renderer anchors.
 - Raised Modern tertiary-square button glyphs by one physical pixel to balance
   the atlas's bottom-heavy border, without changing Flat or press feedback.
 - Reduced compact footers to 24 units with a 4-unit content gap and matching
