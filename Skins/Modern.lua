@@ -10,6 +10,33 @@ lib._skins.modern = Modern
 local GOLD_R, GOLD_G, GOLD_B = 1, 0.82, 0
 local SQUARE_ICON_OFFSET_PIXELS = 1
 
+Modern.WindowMetrics = {
+    padding = { left = 4, right = 6, top = 24, bottom = 4 },
+    bodyPadding = { left = 3, right = 3, top = 3, bottom = 2 },
+    titleBarHeight = 24,
+}
+
+function Modern.WindowLayout(handle)
+    local frame = handle.target
+    frame.TitleContainer:ClearAllPoints()
+    frame.TitleContainer:SetHeight(handle.titleHeight)
+    for _, point in ipairs(handle.titlePoints) do
+        local x = point[4]
+        if point[1] == "TOPLEFT" and not handle.layout.portrait then x = 0 end
+        if point[1] == "TOPRIGHT" and handle.layout.closeButton ~= "titleBar" then x = 0 end
+        frame.TitleContainer:SetPoint(point[1], frame.titleBar, point[3], x, point[5])
+    end
+    if handle.layout.closeButton == "titleBar" then
+        frame.CloseButton:ClearAllPoints()
+        frame.CloseButton:SetSize(handle.closeWidth, handle.closeHeight)
+        for _, point in ipairs(handle.closePoints) do
+            frame.CloseButton:SetPoint(point[1], frame.titleBar, point[3], point[4], point[5])
+        end
+    end
+    frame.resizeButton:ClearAllPoints()
+    frame.resizeButton:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, 3)
+end
+
 local function SetActionIconColor(icon, enabled)
     if enabled then
         icon:SetVertexColor(GOLD_R, GOLD_G, GOLD_B, 1)
@@ -75,6 +102,10 @@ end
 
 function Modern.Window(handle)
     local frame = handle.target
+    if handle.windowPortrait ~= handle.layout.portrait then
+        frame:SetBorder(handle.layout.portrait and "PortraitFrameTemplate" or "ButtonFrameTemplateNoPortrait")
+        handle.windowPortrait = handle.layout.portrait
+    end
     for index, region in ipairs(handle.parts.chrome) do region:SetAlpha(handle.chromeAlpha[index]) end
     frame.TopTileStreaks:Hide()
     frame.TopTileStreaks:SetAlpha(0)

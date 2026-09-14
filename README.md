@@ -10,8 +10,9 @@ controls, icon surfaces, list accents, and pixel primitives. YvBags is the first
 native consumer: it builds on library-created frames, not existing-window
 adapters. The optional EllesmereUI provider remains a subsequent phase.
 Consumers own preference storage; the library owns no SavedVariables, inventory
-logic, or third-party styling. YvBags' Modern integration has passed in-game
-review; Flat visual/interaction approval and broader release validation remain.
+logic, or third-party styling. YvBags' Modern and Flat MVP appearances have
+passed in-game review. The subsequent window-layout refactor and broader
+release validation still need consumer smoke testing.
 
 ## Embedding
 
@@ -47,7 +48,13 @@ local context = Skins:CreateContext("MyAddon", {
 local window = context:CreateWindow(UIParent, {
     name = "MyAddonWindow", title = "My Addon",
     minWidth = 420, minHeight = 360, maxWidth = 1000,
-    compactHeader = true, -- opt into the compact Flat toolbar
+    -- This structure is retained under either skin.
+    layout = {
+        padding = 8,
+        header = { height = 60, gap = 8 },
+        titleBar = { height = 24 },
+        footer = { height = 48, gap = 8 },
+    },
     onMoveStopped = function(frame)
         -- Save the ordinary frame's point/size through the addon's own DB.
     end,
@@ -67,13 +74,80 @@ optional maxima must be at least their matching minima. `name`, `title`,
 strata is `HIGH`, and the default tiled inset is Blizzard's Midnight background.
 Modern retains the original outer background; Flat uses a neutral solid surface.
 
+### Window Vocabulary And Ownership
+
+- **Window:** the whole movable/resizable container.
+- **Header:** everything above the primary Body, including any Title Bar,
+  toolbars, tabs, or custom content. It is not a synonym for a toolbar.
+- **Title Bar:** an optional row inside Header containing the window's title.
+  **Title** means the text itself; dragging is not restricted to this row.
+- **Toolbar:** an optional row helper for controls, usable in any section.
+- **Body:** the primary working area, which fills the remaining space. It does
+  not imply a list, scrolling, or any specific addon content.
+- **Footer:** an optional lower section; it may contain multiple rows.
+- **Control:** an individual button, input, checkbox, etc., not a section.
+- **Layout:** section presence, dimensions, and arrangement, chosen by the addon.
+- **Skin/renderer:** visual treatment, asset-specific offsets, and default
+  measurements. Selecting Flat does not inherently remove a Title Bar.
+
+Padding is internal space, margin is external space, gap separates siblings,
+and a visual offset corrects artwork without changing its control's layout.
+The window shell is the library's container/layout machinery, not another
+visible section. Qualify nested headers, e.g. Window Header versus List Header.
+
 The constructor owns these public frame parts and their outer anchors:
 
-- `window.header`: toolbar area; populate it with the addon's controls.
-- `window.content`: content viewport; mount a list or other addon content here.
+- `window.header`: complete upper section; populate its interior freely.
+- `window.titleBar`: optional row inside Header, containing native TitleContainer.
+- `window.body`: primary viewport; mount a list or other addon content here.
 - `window.footer`: footer area; its interior remains consumer-owned.
 - `window.resizeButton`: native `PanelResizeButtonTemplate`, initialized once.
 - `window.Inset`, `TitleContainer`, and `CloseButton`: original native parts.
+
+`window:SetTitle(text)` retains its native direct access. `movable = false`
+disables background moving; `resizable = false` hides the native grip and
+disables resizing. Both default to true. Close placement is declared by layout.
+
+### Explicit Window Layout
+
+`layout` is the complete fallback specification for every skin. Optional
+`layouts = { modern = {...}, flat = {...} }` replaces it for named skins; these
+are complete specifications, not deep merges. All nested measurements are
+copied during construction. Omitted Header/Footer/Title Bar sections are absent;
+an empty specification creates a Body-only shell with skin-default padding.
+
+- `padding`: window padding, as one nonnegative UI-unit number or independent
+  `left`, `right`, `top`, `bottom` values. Omitted edges use skin defaults.
+- `header` / `footer`: tables with `height`, `gap`, and optional `margin` edges,
+  or false. Height zero removes the section and its margins/gap. Header gap is
+  below Header; Footer gap is above Footer. Neither section wraps automatically.
+- `titleBar`: false or `{ height = ..., margin = ... }`. Height defaults to the
+  skin's title measurement. Its complete height/margins must fit inside Header's
+  declared height; it does not consume a second allocation outside Header.
+- `body`: optional `padding` within the inset border and `margin` outside it.
+  Body otherwise fills between the upper/lower sections. Header/Footer interiors
+  remain addon-owned; the shell does not infer padding from their children.
+- Margins accept independent edges or a uniform number; negative margins allow
+  intentional full-bleed artwork. Omitted margin edges are zero.
+- `portrait`: explicitly show the supplied native portrait; default false.
+- `closeButton`: `"titleBar"`, `"manual"`, or false. The default follows the
+  declared Title Bar, not the skin. Manual placement shows the same native
+  Close button but leaves its anchors and size to the addon, e.g. as a toolbar
+  item. Renderers still own its visual treatment and native scripts stay intact.
+
+`onLayout(window)` runs after section anchors are applied, during construction
+and after changing layout/skin. Use it to arrange existing addon-owned content;
+initial construction precedes creation of those controls. Ordinary resizing
+flows through anchors and does not repeatedly invoke this callback.
+
+`SetWindowLayout(window, specification, skin)` replaces a complete specification.
+Omit `skin` to replace all skin variants. It updates Body allocation without
+recreating controls, moving/resizing the outer window, or revealing hidden Body
+content. Explicit layout changes are rejected during combat or window drags.
+For measured custom headers/footers, submit their new heights through this API,
+not by resizing the library's section frames directly. Consumers remain
+responsible for minimum window bounds and prewarming protected content before
+an explicit layout change that increases its viewport.
 
 Non-action window backgrounds support native dragging outside combat in both
 skins; optional `onMoveStopped(frame)` and
@@ -93,13 +167,57 @@ overlay, global mouse propagation, or polling is installed.
 
 The factory installs show/size geometry hooks once and preserves consumer
 scripts. A window retains its geometry root for its lifetime, even without
-registered strokes. `context:GetWindowChromeWidth(window)` returns the current
-horizontal content overhead for consumer size constraints without duplicating
-inset constants; omitting the window returns the Modern baseline. Do not
+registered strokes. `context:GetWindowBodyWidthOverhead(window)` returns the current
+horizontal Body overhead for consumer size constraints without duplicating
+inset constants; omitting the window returns the active skin's default overhead. Do not
 reposition the library's slots from addon refresh handlers.
 There is no `RegisterWindow` or arbitrary existing-window skinning API.
 
-## Skin Selection And Compact Headers
+### Optional Toolbars And Minimum Measurements
+
+```lua
+local toolbar = context:CreateToolbar(window.header, { height = 28, gap = 4 })
+toolbar:SetPoint("TOPLEFT", window.header, "TOPLEFT", 0, -32)
+toolbar:SetPoint("TOPRIGHT", window.header, "TOPRIGHT", 0, -32)
+local action = context:CreateButton(toolbar, { text = "Apply", width = 80, height = 28 })
+local input = context:CreateEditBox(toolbar, { height = 28 })
+context:SetToolbarItems(toolbar, {
+    action,
+    { control = input, stretch = true, minWidth = 96 },
+})
+```
+
+Toolbar creation returns a raw Frame. The caller chooses its parent and anchors;
+multiple toolbars can occupy any section. Ordered items may be raw controls or
+`{ control = frame, stretch = true, minWidth = number }` descriptors. At most one
+control stretches horizontally; fixed controls before/after it are leading and
+trailing. With no stretch item, controls align left. No search field is required.
+Controls keep their heights and are vertically centered. The helper does not
+reparent controls, install input scripts, or decide which controls are visible.
+Removing an item from the arrangement does not hide it.
+
+`SetToolbarItems(toolbar, items, gap)` copies the list and optionally replaces
+the gap. `LayoutToolbar(toolbar)` reapplies it after caller-driven visibility or
+width changes; it allocates no regions/hooks and does no font/atlas work.
+`GetToolbarMinimumWidth(toolbar)` measures shown controls and flexible minimums.
+The caller must provide sufficient width; the helper does not wrap or hide items.
+
+Window `getMinimumWidth(window)` is an optional addon callback that combines
+its toolbar/custom-content minimums and outer spacing. `GetWindowMinimumWidth`
+returns the greater of that result and constructor `minWidth`; without the
+callback there is no implicit toolbar/search requirement. Consumers apply this
+measurement to their native resize bounds.
+
+`GetWindowBodyReserve(window)` reports additional viewport height available
+under the largest declared skin layout, for protected-row prewarming. It is
+calculated from section/margin/padding totals rather than a hardcoded skin delta.
+
+This unreleased API replaces `compactHeader`, `SetHeaderControls`, `LayoutHeader`,
+`IsWindowCompact`, `window.content`, and the old chrome/content measurement names.
+YvBags is the only current consumer and has been converted with the library;
+no SavedVariables migration or release-version bump is involved.
+
+## Skin Selection
 
 `context:RequestSkin("modern" / "flat")` records the latest request and
 coalesces its application onto the next frame. `GetAppliedSkin()` reports the
@@ -120,27 +238,11 @@ window size changes; count active rows toward that budget. Use `onApplied`
 for presentation-only resize constraints and `onStatusChanged` for Settings
 status. Never rebuild inventory/providers or commit geometry just to reskin.
 
-With `compactHeader = true`, Flat hides the native portrait/title art and uses
-28-unit toolbar controls, 4-unit control gaps, 8-unit outer padding, and a
-96-unit minimum search width. An outlined content inset separates the toolbar
-and footer with matching 4-unit gaps. Controls start at the toolbar's left edge,
-and the existing close button joins its right end. The footer is 24 units high
-with 8 units below it. Consumers can size footer actions to its current height
-and listen for height changes when switching skins. The footer reserves the
-grip's width in addition to its right padding; the grip itself touches the
-bottom-right frame corner. Outer size, position, and native input scripts
-remain unchanged. Modern restores its 28-unit footer and the
-original chrome. Layout is opt-in: Flat without `compactHeader` retains the
-original title/header geometry.
-
-After constructing toolbar controls, call
-`SetHeaderControls(window, { settingsButton, scaleButton, ... }, searchBox)`.
-The library lays out shown controls in order and gives search the remaining
-space. Call `LayoutHeader(window)` after changing tab visibility or measured
-widths. `GetWindowMinimumWidth(window)` combines those widths, search space,
-and chrome with the constructor minimum; apply it to native resize bounds.
-`GetWindowContentReserve(window)` reports the additional viewport height to
-reserve while prewarming Modern rows for a later compact switch.
+YvBags explicitly declares a Title Bar plus Toolbar for Modern, and a Toolbar
+with Close for Flat. Its 28-unit toolbar, 24/28-unit footers, search minimum,
+footer grip clearance, and per-skin arrangement live in that addon, not library
+policy. The development example instead retains its Title Bar and a two-row
+Footer in both skins, demonstrating a different consumer structure.
 
 Flat surfaces use preallocated, screen-snapped, nonoverlapping one-physical-
 pixel edges. Icon borders use one physical pixel outside the artwork, keeping
@@ -303,11 +405,11 @@ There is no leading icon slot, reserved icon spacing, or separate divider.
 
 ```lua
 local expanded = true
-local header, appearance = context:CreateExpandableHeader(window.content, {
+local header, appearance = context:CreateExpandableHeader(window.body, {
     geometryRoot = window, width = 400, height = 31,
     text = "Consumables (2)", expanded = expanded,
 })
-header:SetPoint("TOPLEFT", window.content, "TOPLEFT", 0, 0)
+header:SetPoint("TOPLEFT", window.body, "TOPLEFT", 0, 0)
 header:SetScript("OnClick", function()
     expanded = not expanded
     appearance:SetExpanded(expanded)
@@ -338,7 +440,7 @@ Context token changes recolor labels without changing layout or other addons.
 ## Separators
 
 ```lua
-local texture, divider = context:CreateSeparator(window.content, {
+local texture, divider = context:CreateSeparator(window.body, {
     geometryRoot = window,
     orientation = "horizontal",
     align = "end", -- bottom for horizontal, right for vertical
@@ -362,7 +464,10 @@ subtrees. Pixel refreshes draw only custom regions, never move/resize a root.
 
 | Method | Contract |
 | --- | --- |
-| `context:CreateWindow(parent, options)` | Create a canonical Modern shell with directly accessible frame parts. |
+| `context:CreateWindow(parent, options)` | Create a Header/Body/Footer shell using explicit consumer layouts. |
+| `context:SetWindowLayout(window, layout, skin)` | Replace one or all copied layout variants and recalculate Body space. |
+| `context:CreateToolbar(parent, options)` | Create an optional, independently anchored control row. |
+| `context:SetToolbarItems(toolbar, items, gap)` | Arrange shown controls with an optional flexible-width item. |
 | `context:CreateSeparator(parent, options)` | Create and register a texture together; return the Texture and handle. |
 | `context:CreateExpandableHeader(parent, options)` | Create an icon-free Modern accordion Button and its expansion appearance handle. |
 | `context:RegisterComponent(role, target, parts, options)` | Low-level constructor backend and explicit external visual extension point, not the primary consumer path. Repeating identical ownership returns its handle without reapplying options. |

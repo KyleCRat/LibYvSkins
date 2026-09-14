@@ -11,6 +11,27 @@ local TEXT_OFFSET_Y = -1
 local SCROLL_TRACK_INSET = 15
 local CHECKMARK_OFFSET_PIXELS = 1
 
+Flat.WindowMetrics = {
+    padding = { left = 8, right = 8, top = 8, bottom = 8 },
+    bodyPadding = { left = 2, right = 2, top = 2, bottom = 2 },
+    titleBarHeight = 24,
+}
+
+function Flat.WindowLayout(handle)
+    local frame = handle.target
+    frame.TitleContainer:ClearAllPoints()
+    frame.TitleContainer:SetPoint("TOPLEFT", frame.titleBar, "TOPLEFT", 4, 0)
+    local right = handle.layout.closeButton == "titleBar" and handle.layout.titleBar.height + 4 or 4
+    frame.TitleContainer:SetPoint("BOTTOMRIGHT", frame.titleBar, "BOTTOMRIGHT", -right, 0)
+    if handle.layout.closeButton == "titleBar" then
+        frame.CloseButton:ClearAllPoints()
+        frame.CloseButton:SetSize(handle.layout.titleBar.height, handle.layout.titleBar.height)
+        frame.CloseButton:SetPoint("RIGHT", frame.titleBar, "RIGHT", 0, 0)
+    end
+    frame.resizeButton:ClearAllPoints()
+    frame.resizeButton:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
+end
+
 -- Neutral framing follows the RaidGroupManager flat palette. Accent is per
 -- context; item rarity, money, binding, and other semantic colors stay intact.
 local function Paint(surface, background, border, alpha)
@@ -113,9 +134,10 @@ end
 function Flat.Window(handle)
     local frame = handle.target
     for _, region in ipairs(handle.parts.chrome) do region:SetAlpha(0) end
+    if handle.layout.portrait then frame.PortraitContainer:SetAlpha(1) end
     frame.TopTileStreaks:SetAlpha(0)
     Paint(handle.parts.surface, 0.05, 0, 0.95)
-    Paint(handle.parts.contentSurface, 0.035, 0.3, 0.95)
+    Paint(handle.parts.bodySurface, 0.035, 0.3, 0.95)
 end
 
 function Flat.Icon(handle)

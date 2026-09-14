@@ -216,6 +216,7 @@ function Harness.New()
     end
     function Region:GetName() return self.name end
     function Region:GetParent() return self.parent end
+    function Region:SetParent(parent) self.parent = parent end
     function Region:GetObjectType() return self.frameType or "Texture" end
     function Region:SetFrameStrata(value) self.strata = value end
     function Region:SetFrameLevel(value) self.frameLevel = value end
@@ -227,6 +228,7 @@ function Harness.New()
     function Region:SetResizable(value) self.resizable = value end
     function Region:SetResizeBounds(...) self.resizeBounds = { ... } end
     function Region:SetTitle(value) self.title = value end
+    function Region:SetBorder(value) self.border = value end
     function Region:SetPortraitToAsset(value) self.portrait = value end
     function Region:SetPortraitTexCoord(...) self.portraitTexCoord = { ... } end
     function Region:RegisterForDrag(...) self.dragButtons = { ... } end
@@ -275,6 +277,9 @@ function Harness.New()
             frame.Bg = frame:CreateTexture()
             frame.Bg:SetTexture("native-outer-background")
             frame.TitleContainer = env.CreateFrame("Frame", nil, frame)
+            frame.TitleContainer:SetHeight(20)
+            frame.TitleContainer:SetPoint("TOPLEFT", frame, "TOPLEFT", 58, -1)
+            frame.TitleContainer:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -24, -1)
             frame.CloseButton = env.CreateFrame("Button", nil, frame)
             frame.CloseButton:SetSize(32, 32)
             frame.CloseButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -4, -3)

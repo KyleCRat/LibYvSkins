@@ -2,6 +2,51 @@ assert(_VERSION == "Lua 5.1", "Run this suite with Lua 5.1 from the library root
 local H = dofile("tests/harness.lua")
 local passed = 0
 
+-- A consumer fixture deliberately declares the former inventory-window
+-- arrangement. It is not a library default or a required toolbar structure.
+local EXAMPLE_LAYOUTS = {
+    modern = {
+        padding = { left = 4, right = 6, top = 0, bottom = 4 },
+        header = { height = 56, gap = 4 },
+        titleBar = { height = 24, margin = { left = -4, right = -6 } },
+        footer = { height = 28, gap = 2, margin = { left = -1, right = 9 } },
+        portrait = true,
+    },
+    flat = {
+        padding = 8, header = { height = 28, gap = 4 },
+        footer = { height = 24, gap = 4, margin = { right = 16 } },
+        closeButton = "manual",
+    },
+}
+
+local function LayoutExampleToolbar(window)
+    if not window.toolbar then return end
+    local context, compact = window.exampleContext, not window.titleBar:IsShown()
+    window.toolbar:ClearAllPoints()
+    window.toolbar:SetPoint("TOPLEFT", window.header, "TOPLEFT", compact and 0 or 54, compact and 0 or -28)
+    window.toolbar:SetPoint("TOPRIGHT", window.header, "TOPRIGHT", 0, compact and 0 or -28)
+    local items = {}
+    for index, item in ipairs(window.exampleItems) do items[index] = item end
+    items[#items + 1] = { control = window.exampleSearch, stretch = true, minWidth = 96 }
+    if compact then
+        window.CloseButton:SetSize(28, 28)
+        items[#items + 1] = window.CloseButton
+    end
+    context:SetToolbarItems(window.toolbar, items, compact and 4 or 2)
+end
+
+local function SetExampleToolbar(context, window, items, search)
+    window.exampleContext, window.exampleItems, window.exampleSearch = context, items, search
+    search:SetHeight(28)
+    window.toolbar = context:CreateToolbar(window.header, { height = 28 })
+    LayoutExampleToolbar(window)
+end
+
+local function ExampleMinimumWidth(window)
+    if not window.toolbar then return 0 end
+    return window.exampleContext:GetToolbarMinimumWidth(window.toolbar) + (window.titleBar:IsShown() and 64 or 16)
+end
+
 local function Test(name, callback)
     local success, message = pcall(callback)
     if not success then
@@ -410,6 +455,7 @@ Test("window factory creates raw frames with canonical Modern chrome", function(
     local window = context:CreateWindow(parent, {
         name = "TestWindow", title = "Inventory", portrait = "test-icon",
         insetBackground = "test-tile", minWidth = 420, minHeight = 360, maxWidth = 900,
+        layouts = EXAMPLE_LAYOUTS,
     })
     H.Equal(window:GetObjectType(), "Frame")
     H.Equal(window.template, "ButtonFrameTemplate")
@@ -432,16 +478,16 @@ Test("window factory creates raw frames with canonical Modern chrome", function(
     local left, bottom = window:GetRect()
     for _, width in ipairs({ 420, 730, 900 }) do
         window:SetSize(width, 500)
-        local cl, cb, cw, ch = window.content:GetRect()
+        local cl, cb, cw, ch = window.body:GetRect()
         H.Near(cl, left + 7)
         H.Near(cb, bottom + 36)
-        H.Near(cw, width - context:GetWindowChromeWidth())
+        H.Near(cw, width - context:GetWindowBodyWidthOverhead(window))
         H.Near(ch, 500 - 99)
         local hl, hb, hw, hh = window.header:GetRect()
-        H.Near(hl, left + 58)
+        H.Near(hl, left + 4)
         H.Near(hb, bottom + 500 - 56)
-        H.Near(hw, width - 64)
-        H.Equal(hh, 28)
+        H.Near(hw, width - 10)
+        H.Equal(hh, 56)
         local fl, fb, fw, fh = window.footer:GetRect()
         H.Near(fl, left + 3)
         H.Near(fb, bottom + 4)
@@ -461,8 +507,8 @@ Test("created windows refresh child strokes without an addon adapter", function(
     first:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 0.13, 0.21)
     second:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 501.17, 20.19)
     local options = { geometryRoot = first, align = "end", layer = "ARTWORK", sublevel = 1 }
-    local texture, handle = context:CreateSeparator(first.content, options)
-    local otherTexture, otherHandle = other:CreateSeparator(second.content, { geometryRoot = second })
+    local texture, handle = context:CreateSeparator(first.body, options)
+    local otherTexture, otherHandle = other:CreateSeparator(second.body, { geometryRoot = second })
     H.Equal(texture:GetObjectType(), "Texture")
     H.Equal(handle.target, texture)
     H.Equal(texture.layer, "ARTWORK")
@@ -483,10 +529,10 @@ Test("created windows refresh child strokes without an addon adapter", function(
         H.Near(t - b, 1)
         H.Equal(otherHandle.root.metrics.unit, otherUnit)
     end
-    first.content:Hide()
+    first.body:Hide()
     context:RefreshGeometry(first)
     H.Equal(texture:IsShown(), false)
-    first.content:Show()
+    first.body:Show()
     H.Equal(texture:IsShown(), true)
     H.Equal(otherTexture:IsShown(), true)
     H.Equal(#state.frames, frames)
@@ -494,7 +540,7 @@ Test("created windows refresh child strokes without an addon adapter", function(
     H.Equal(state.hooks, hooks)
     context:UnregisterComponent(texture)
     assert(context._roots[first], "a window owns its geometry root even with no strokes")
-    local replacement = context:CreateSeparator(first.content, { geometryRoot = first })
+    local replacement = context:CreateSeparator(first.body, { geometryRoot = first })
     H.Aligned(replacement, state.height)
 end)
 
@@ -505,6 +551,7 @@ Test("window callbacks preserve native movement, resize, close and consumer scri
     local moved, resized, shown, closed = 0, 0, 0, 0
     local window = context:CreateWindow(parent, {
         minWidth = 420, minHeight = 360,
+        layouts = EXAMPLE_LAYOUTS,
         onMoveStopped = function(target)
             H.Equal(target.moving, false)
             moved = moved + 1
@@ -516,7 +563,7 @@ Test("window callbacks preserve native movement, resize, close and consumer scri
         end,
     })
     window:SetPoint("CENTER", parent, "CENTER", 0.17, 0.23)
-    local texture = context:CreateSeparator(window.content, { geometryRoot = window })
+    local texture = context:CreateSeparator(window.body, { geometryRoot = window })
     window:SetScript("OnShow", function() shown = shown + 1 end)
     window:Show()
     H.Equal(texture:IsShown(), true, "consumer SetScript must not replace library hooks")
@@ -565,7 +612,7 @@ Test("window instances survive mixed MINOR embeds without duplicate lifecycle ho
         local parent = state:Region(0, 0, 1024, 768, 1)
         local window = context:CreateWindow(parent, { minWidth = 400, minHeight = 300 })
         window:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", -0.17, 4.31)
-        local texture, handle = context:CreateSeparator(window.content, { geometryRoot = window })
+        local texture, handle = context:CreateSeparator(window.body, { geometryRoot = window })
         local factory = context.CreateWindow
         local frames, regions, hooks = #state.frames, state.regions, state.hooks
         state:Load(order[2])
@@ -1084,30 +1131,32 @@ Test("each renderer constructs and refreshes controls without invoking or aliasi
         local other = lib._skins[skin == "modern" and "flat" or "modern"]
         for method, implementation in pairs(other) do
             H.Equal(renderer[method] == implementation, false, "renderers must not alias sibling methods")
-            other[method] = function() error("inactive skin renderer was invoked") end
+            if type(implementation) == "function" then
+                other[method] = function() error("inactive skin renderer was invoked") end
+            end
         end
 
         -- Construct directly in the selected skin, without another renderer
         -- first supplying its fonts, opacity, artwork, or visual state.
         local parent = state:Region(0, 0, 800, 600, 1)
-        local window = context:CreateWindow(parent, { minWidth = 400, minHeight = 300, compactHeader = true })
+        local window = context:CreateWindow(parent, { minWidth = 400, minHeight = 300, layouts = EXAMPLE_LAYOUTS, onLayout = LayoutExampleToolbar })
         window:SetPoint("CENTER", parent, "CENTER", 0, 0)
         local button, buttonHandle = context:CreateButton(window.header, {
             geometryRoot = window, variant = "square", icon = lib:GetIconTexture("plus"), alpha = 0.7,
         })
         local search = context:CreateSearchBox(window.header, { geometryRoot = window, alpha = 0.6 })
-        context:SetHeaderControls(window, { button }, search)
+        SetExampleToolbar(context, window, { button }, search)
         local check, checkHandle = context:CreateCheckbox(window.footer, { geometryRoot = window })
-        local edit = context:CreateEditBox(window.content, { geometryRoot = window })
-        local header, headerHandle = context:CreateExpandableHeader(window.content, { geometryRoot = window, alpha = 0.8 })
-        local tab, tabHandle = context:CreateTab(window.content, { geometryRoot = window, text = "Tab" })
-        local icon = context:CreateIcon(window.content, { geometryRoot = window })
+        local edit = context:CreateEditBox(window.body, { geometryRoot = window })
+        local header, headerHandle = context:CreateExpandableHeader(window.body, { geometryRoot = window, alpha = 0.8 })
+        local tab, tabHandle = context:CreateTab(window.body, { geometryRoot = window, text = "Tab" })
+        local icon = context:CreateIcon(window.body, { geometryRoot = window })
         icon:SetTexture("item-art")
         icon:SetVertexColor(0.2, 0.3, 0.4, 1)
-        local text = context:CreateText(window.content, { geometryRoot = window, text = "Label" })
-        local texture = context:CreateTexture(window.content, { geometryRoot = window, colorToken = "accent" })
-        context:CreateScrollBar(window.content, { geometryRoot = window })
-        context:CreateGlowBorder(window.content, { geometryRoot = window })
+        local text = context:CreateText(window.body, { geometryRoot = window, text = "Label" })
+        local texture = context:CreateTexture(window.body, { geometryRoot = window, colorToken = "accent" })
+        context:CreateScrollBar(window.body, { geometryRoot = window })
+        context:CreateGlowBorder(window.body, { geometryRoot = window })
         window:Show()
         check:SetChecked(true)
         edit:SetText("keep me")
@@ -1197,7 +1246,7 @@ Test("two windows round-trip compact chrome without replacing controls or changi
     local parent = state:Region(0, 0, 1920, 1080, 1)
     local windows = {}
     for index = 1, 2 do
-        local window = context:CreateWindow(parent, { minWidth = 420, minHeight = 360, compactHeader = true })
+        local window = context:CreateWindow(parent, { minWidth = 420, minHeight = 360, layouts = EXAMPLE_LAYOUTS, onLayout = LayoutExampleToolbar })
         window:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 13.17 + index * 100, 19.31)
         window:SetScale(index == 1 and 0.75 or 1.5)
         window:SetSize(700, 600)
@@ -1205,14 +1254,14 @@ Test("two windows round-trip compact chrome without replacing controls or changi
         local scale = context:CreateButton(window.header, { geometryRoot = window, variant = "square", width = 28, height = 28 })
         local tab, tabHandle = context:CreateTab(window.header, { geometryRoot = window, text = "Character", width = 108, height = 28, selected = true })
         local search = context:CreateSearchBox(window.header, { geometryRoot = window })
-        context:SetHeaderControls(window, { cog, scale, tab }, search)
+        SetExampleToolbar(context, window, { cog, scale, tab }, search)
         window:Show()
         search:SetText("keystone")
         search:SetFocus()
         windows[index] = { frame = window, search = search, tab = tabHandle,
-            height = window.content:GetHeight(), close = window.CloseButton:GetScript("OnClick"),
+            height = window.body:GetHeight(), close = window.CloseButton:GetScript("OnClick"),
             width = window:GetWidth(), left = window:GetRect(), resize = window.resizeButton:GetScript("OnMouseDown") }
-        H.Equal(context:GetWindowContentReserve(window), 19)
+        H.Equal(context:GetWindowBodyReserve(window), 19)
     end
     local frames, regions, hooks = #state.frames, state.regions, state.hooks
     for round = 1, 3 do
@@ -1222,14 +1271,14 @@ Test("two windows round-trip compact chrome without replacing controls or changi
             local frame = data.frame
             H.Equal(frame.TitleContainer:IsShown(), false)
             H.Equal(frame.PortraitContainer:GetAlpha(), 0)
-            H.Equal(frame.content:GetHeight(), data.height + 19)
+            H.Equal(frame.body:GetHeight(), data.height + 19)
             H.Equal(frame.CloseButton:GetWidth(), 28)
             H.Equal(data.search:GetHeight(), 28)
             H.Equal(data.search:GetText(), "keystone")
             H.Equal(data.search:HasFocus(), true)
             H.Equal(frame:GetWidth(), data.width)
             H.Equal(frame:GetRect(), data.left)
-            H.Equal(context:GetWindowContentReserve(frame), 0)
+            H.Equal(context:GetWindowBodyReserve(frame), 0)
             data.tab.target:RunScript("OnEnter")
             data.tab.target:RunScript("OnMouseDown", "LeftButton")
             H.Equal(data.tab.selected, true)
@@ -1244,7 +1293,7 @@ Test("two windows round-trip compact chrome without replacing controls or changi
         for _, data in ipairs(windows) do
             H.Equal(data.frame.TitleContainer:IsShown(), true)
             H.Equal(data.frame.PortraitContainer:GetAlpha(), 1)
-            H.Equal(data.frame.content:GetHeight(), data.height)
+            H.Equal(data.frame.body:GetHeight(), data.height)
             H.Equal(data.frame.CloseButton:GetWidth(), 32)
             H.Equal(data.tab.parts.normal:GetAlpha(), 1)
             H.Equal(data.tab.parts.normal:GetAtlas(), "common-button-tertiary-selected")
@@ -1364,7 +1413,7 @@ Test("moving resizing and scaling park skin changes until their end notification
     local context = state:Load():CreateContext("Interactions")
     state:PopupLibrary()
     local parent = state:Region(0, 0, 1920, 1080, 1)
-    local window = context:CreateWindow(parent, { minWidth = 420, minHeight = 360, compactHeader = true })
+    local window = context:CreateWindow(parent, { minWidth = 420, minHeight = 360, layouts = EXAMPLE_LAYOUTS, onLayout = LayoutExampleToolbar })
     local popup = context:CreatePopupSlider(window, {})
     window:Show()
     window.TitleContainer:RunScript("OnDragStart")
@@ -1514,14 +1563,14 @@ Test("compact windows have symmetric padding, an outlined inset and left-aligned
     local state = H.New()
     local context = state:Load():CreateContext("Spacing")
     local parent = state:Region(0, 0, 1920, 1080, 1)
-    local window = context:CreateWindow(parent, { minWidth = 300, minHeight = 200, compactHeader = true })
+    local window = context:CreateWindow(parent, { minWidth = 300, minHeight = 200, layouts = EXAMPLE_LAYOUTS, onLayout = LayoutExampleToolbar })
     window:SetSize(700, 500)
     window:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 13, 27)
     local button = context:CreateButton(window.header, { width = 28, height = 28 })
     local search = context:CreateSearchBox(window.header)
-    context:SetHeaderControls(window, { button }, search)
+    SetExampleToolbar(context, window, { button }, search)
     window:Show()
-    H.Equal(context:GetWindowChromeWidth(window), 16)
+    H.Equal(context:GetWindowBodyWidthOverhead(window), 16)
     context:RequestSkin("flat")
     state:Flush()
     local left, bottom, width, height = window:GetRect()
@@ -1540,8 +1589,8 @@ Test("compact windows have symmetric padding, an outlined inset and left-aligned
     H.Near(hBottom - iBottom - iHeight, 4)
     H.Near(iBottom - fBottom - fHeight, 4)
     H.Near(button:GetRect() - hLeft, 0)
-    H.Equal(context:GetWindowChromeWidth(window), 20)
-    local contentSurface = context._components[window].parts.contentSurface
+    H.Equal(context:GetWindowBodyWidthOverhead(window), 20)
+    local contentSurface = context._components[window].parts.bodySurface
     for _, edge in ipairs(contentSurface.border.edges) do
         H.Equal(edge:IsShown(), true)
         H.Aligned(edge, state.height)
@@ -1549,12 +1598,13 @@ Test("compact windows have symmetric padding, an outlined inset and left-aligned
     H.Equal(context._components[window.resizeButton].parts.surface, nil, "resize glyph has no box")
     context:RequestSkin("modern")
     state:Flush()
-    H.Equal(window.header.points.TOPLEFT[3], 58)
-    H.Equal(window.header.points.TOPLEFT[4], -28)
+    H.Equal(window.header.points.TOPLEFT[3], 4)
+    H.Equal(window.header.points.TOPLEFT[4], 0)
+    H.Near(window.toolbar:GetRect() - window:GetRect(), 58)
     H.Equal(window.footer.points.BOTTOMLEFT[3], 3)
     H.Equal(window.footer.points.BOTTOMLEFT[4], 4)
     H.Equal(window.footer.points.BOTTOMRIGHT[3], -15)
-    H.Equal(context:GetWindowChromeWidth(window), 16)
+    H.Equal(context:GetWindowBodyWidthOverhead(window), 16)
     for _, edge in ipairs(contentSurface.border.edges) do H.Equal(edge:IsShown(), false) end
 end)
 
@@ -1564,10 +1614,10 @@ Test("background dragging works in both skins without claiming child actions or 
     local parent = state:Region(0, 0, 1920, 1080, 1)
     local stops, clicks = 0, 0
     local window = context:CreateWindow(parent, {
-        minWidth = 300, minHeight = 200, compactHeader = true,
+        minWidth = 300, minHeight = 200, layouts = EXAMPLE_LAYOUTS, onLayout = LayoutExampleToolbar,
         onMoveStopped = function() stops = stops + 1 end,
     })
-    local region = state.env.CreateFrame("Frame", nil, window.content)
+    local region = state.env.CreateFrame("Frame", nil, window.body)
     local mouseUp = function() clicks = clicks + 1 end
     region:SetScript("OnMouseUp", mouseUp)
     context:RegisterWindowDragRegion(window, region)
@@ -1585,7 +1635,7 @@ Test("background dragging works in both skins without claiming child actions or 
         state:Flush()
         window:Show()
         for _, background in ipairs({ window, window.TitleContainer, window.header,
-            window.Inset, window.content, window.footer, region }) do
+            window.Inset, window.body, window.footer, region }) do
             background:RunScript("OnDragStart", "LeftButton")
             H.Equal(window.moving, true)
             local before = stops
@@ -1615,14 +1665,14 @@ Test("Flat text baselines and action colors restore without tinting semantic ite
         iconBorder = "border", tokens = { accent = { r = 0.1, g = 0.8, b = 0.9 } },
     })
     local parent = state:Region(0, 0, 1920, 1080, 1)
-    local window = context:CreateWindow(parent, { minWidth = 400, minHeight = 300, compactHeader = true })
+    local window = context:CreateWindow(parent, { minWidth = 400, minHeight = 300, layouts = EXAMPLE_LAYOUTS, onLayout = LayoutExampleToolbar })
     local tab, tabHandle = context:CreateTab(window.header)
     local search = context:CreateSearchBox(window.header)
     local minus, minusHandle = context:CreateButton(window.footer, { icon = state.lib:GetIconTexture("minus") })
     local purchase = state.env.CreateFrame("Button", nil, window.footer)
     local purchaseIcon = context:CreateIcon(purchase, { actionIcon = true, crop = false, width = 18 })
     purchaseIcon:SetTexture(state.lib:GetIconTexture("plus"))
-    local item = context:CreateIcon(window.content)
+    local item = context:CreateIcon(window.body)
     item:SetVertexColor(0.8, 0.7, 0.6, 0.9)
     item:SetDesaturated(true)
     local clearClick = search.clearButton:GetScript("OnClick")
@@ -1753,7 +1803,7 @@ Test("Flat action glyphs stay centered with a separate native checkmark offset",
     state.atlasSizes["common-icon-checkmark-yellow"] = { 24, 24 }
     local context = state:Load():CreateContext("IconBaseline")
     local parent = state:Region(0, 0, 1920, 1080, 1)
-    local window = context:CreateWindow(parent, { minWidth = 300, minHeight = 200, compactHeader = true })
+    local window = context:CreateWindow(parent, { minWidth = 300, minHeight = 200, layouts = EXAMPLE_LAYOUTS, onLayout = LayoutExampleToolbar })
     window:SetSize(700, 500)
     window:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 10.31, 20.13)
     local button, handle = context:CreateButton(window.header, {
@@ -1828,7 +1878,7 @@ Test("Flat grip is flush with the window corner and footer reserves clearance", 
     for _, compact in ipairs({ true, false }) do
         context:RequestSkin("modern")
         state:Flush()
-        local window = context:CreateWindow(parent, { minWidth = 300, minHeight = 200, compactHeader = compact })
+        local window = context:CreateWindow(parent, { minWidth = 300, minHeight = 200, layouts = compact and EXAMPLE_LAYOUTS or { modern = EXAMPLE_LAYOUTS.modern, flat = EXAMPLE_LAYOUTS.modern } })
         window:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 10, 20)
         window:SetSize(700, 500)
         window:Show()
@@ -1884,25 +1934,28 @@ Test("Flat scrollbar centers in its gutter and halves arrow gaps without changin
     end
 end)
 
-Test("compact layout is opt-in and header minimums follow shown control widths", function()
+Test("explicit title layout is retained across skins and toolbar minimums follow shown widths", function()
     local state = H.New()
     local context = state:Load():CreateContext("Layout")
     local parent = state:Region(0, 0, 1920, 1080, 1)
-    local window = context:CreateWindow(parent, { minWidth = 100, minHeight = 200 })
+    local window = context:CreateWindow(parent, {
+        minWidth = 100, minHeight = 200, layout = EXAMPLE_LAYOUTS.modern,
+        onLayout = LayoutExampleToolbar, getMinimumWidth = ExampleMinimumWidth,
+    })
     local tab = context:CreateTab(window.header, { width = 300, height = 28 })
     local search = context:CreateSearchBox(window.header)
-    context:SetHeaderControls(window, { tab }, search)
+    SetExampleToolbar(context, window, { tab }, search)
     H.Equal(context:GetWindowMinimumWidth(window), 462)
     context:RequestSkin("flat")
     state:Flush()
-    H.Equal(context:IsWindowCompact(window), false)
+    H.Equal(window.titleBar:IsShown() == false, false)
     H.Equal(window.TitleContainer:IsShown(), true)
     tab:Hide()
-    context:LayoutHeader(window)
+    context:LayoutToolbar(window.toolbar)
     H.Equal(context:GetWindowMinimumWidth(window), 160)
     tab:SetWidth(400)
     tab:Show()
-    context:LayoutHeader(window)
+    context:LayoutToolbar(window.toolbar)
     H.Equal(context:GetWindowMinimumWidth(window), 562)
 end)
 
@@ -1942,6 +1995,133 @@ Test("late legacy popups fall back atomically without forgetting the requested s
     H.Equal(reason, "unavailable")
     H.Equal(handle.parts.normal:GetAlpha(), 1)
     H.Equal(handle.parts.normal:GetAtlas(), "common-button-tertiary-normal")
+end)
+
+Test("window sections are optional and explicit layouts preserve structure across skins", function()
+    local state = H.New()
+    local context = state:Load():CreateContext("FlexibleShell")
+    local parent = state:Region(0, 0, 900, 700, 1)
+    local bare = context:CreateWindow(parent, { minWidth = 300, minHeight = 200, movable = false, resizable = false })
+    bare:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 0, 0)
+    bare:Show()
+    H.Equal(bare.header:IsShown(), false)
+    H.Equal(bare.footer:IsShown(), false)
+    H.Equal(bare.titleBar:IsShown(), false)
+    H.Equal(bare.CloseButton:IsShown(), false)
+    H.Equal(bare.resizeButton:IsShown(), false)
+    H.Equal(context:GetWindowMinimumWidth(bare), 300, "no implicit search minimum")
+    bare:RunScript("OnDragStart")
+    H.Equal(bare.moving, nil)
+
+    local layout = {
+        padding = 10, header = { height = 80, gap = 6 }, titleBar = { height = 24 },
+        body = { padding = 0 }, footer = { height = 60, gap = 8 },
+    }
+    local callbacks = 0
+    local window = context:CreateWindow(parent, {
+        minWidth = 300, minHeight = 200, layout = layout,
+        onLayout = function() callbacks = callbacks + 1 end,
+    })
+    window:SetSize(600, 400)
+    window:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 0, 0)
+    window:Show()
+    local body, title, footer = window.body, window.titleBar, window.footer
+    H.Equal(body:GetHeight(), 226)
+    H.Equal(context:GetWindowBodyReserve(window), 0)
+    H.Equal(title:GetParent(), window.header)
+    H.Equal(window.TitleContainer:GetParent(), title)
+    H.Equal(window.TitleContainer.points.TOPLEFT[3], 0, "no portrait leaves no icon reservation")
+    local frames, regions, hooks = #state.frames, state.regions, state.hooks
+    context:RequestSkin("flat")
+    state:Flush()
+    H.Equal(title:IsShown(), true, "Flat does not imply no Title Bar")
+    H.Equal(footer:GetHeight(), 60, "Flat does not imply a short Footer")
+    H.Equal(body:GetHeight(), 226)
+    H.Equal(context:GetWindowBodyWidthOverhead(window), 20)
+    layout.footer.height = 100
+    context:RefreshAppearance()
+    H.Equal(footer:GetHeight(), 60, "caller layout tables are detached")
+    context:SetWindowLayout(window, layout, "flat")
+    H.Equal(body:GetHeight(), 186)
+    H.Equal(context:GetWindowBodyReserve(window), 40)
+    context:RequestSkin("modern")
+    state:Flush()
+    H.Equal(body:GetHeight(), 226)
+    H.Equal(footer:GetHeight(), 60)
+    body:Hide()
+    context:SetWindowLayout(window, { padding = 10, body = { padding = 0 }, header = false, footer = false })
+    H.Equal(window.header:IsShown(), false)
+    H.Equal(window.footer:IsShown(), false)
+    H.Equal(body:GetHeight(), 380)
+    H.Equal(body:IsShown(), false, "layout must not reveal consumer-hidden Body content")
+    H.Equal(window.body, body)
+    H.Equal(window.titleBar, title)
+    H.Equal(#state.frames, frames)
+    H.Equal(state.regions, regions)
+    H.Equal(state.hooks, hooks)
+    H.Equal(callbacks, 5)
+
+    state.combat = true
+    H.Fails(function() context:SetWindowLayout(window, layout) end)
+    state.combat = false
+    window:RunScript("OnDragStart")
+    H.Fails(function() context:SetWindowLayout(window, layout) end)
+    window:RunScript("OnDragStop")
+    local count = #state.frames
+    for _, invalid in ipairs({ { padding = -1 }, { header = { height = -1 } },
+        { header = { height = 10 }, titleBar = { height = 24 } }, { closeButton = "titleBar" },
+        { body = { padding = { left = math.huge } } } }) do
+        H.Fails(function() context:CreateWindow(parent, { minWidth = 300, minHeight = 200, layout = invalid }) end)
+    end
+    H.Equal(#state.frames, count)
+end)
+
+Test("toolbars accept arbitrary controls, a flexible middle, and search-free rows without layout churn", function()
+    local state = H.New()
+    local context = state:Load():CreateContext("Toolbars")
+    local parent = state:Region(0, 0, 900, 700, 1)
+    local toolbar = context:CreateToolbar(parent, { height = 24, gap = 6 })
+    toolbar:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 0, 0)
+    toolbar:SetWidth(300)
+    local leading = context:CreateButton(toolbar, { width = 40, height = 20 })
+    local flexible = context:CreateEditBox(toolbar, { width = 80, height = 22 })
+    local trailing = context:CreateButton(toolbar, { width = 30, height = 18 })
+    local items = { leading, { control = flexible, stretch = true, minWidth = 50 }, trailing }
+    context:SetToolbarItems(toolbar, items)
+    H.Equal(context:GetToolbarMinimumWidth(toolbar), 132)
+    H.Equal(flexible:GetWidth(), 218)
+    H.Equal(flexible:GetRect(), 46)
+    H.Equal(trailing:GetRect(), 270)
+    H.Equal(flexible:GetHeight(), 22, "toolbar arrangement does not resize control heights")
+    items[2].minWidth = 500
+    H.Equal(context:GetToolbarMinimumWidth(toolbar), 132)
+    flexible:SetText("retain")
+    flexible:SetFocus()
+    local frames, regions, hooks = #state.frames, state.regions, state.hooks
+    leading:Hide()
+    for index = 1, 20 do context:LayoutToolbar(toolbar) end
+    H.Equal(context:GetToolbarMinimumWidth(toolbar), 86)
+    H.Equal(flexible:GetWidth(), 264)
+    H.Equal(flexible:GetRect(), 0)
+    H.Equal(flexible:GetText(), "retain")
+    H.Equal(flexible:HasFocus(), true)
+    H.Equal(#state.frames, frames)
+    H.Equal(state.regions, regions)
+    H.Equal(state.hooks, hooks)
+    leading:Show()
+    context:SetToolbarItems(toolbar, { leading, trailing }, 0)
+    H.Equal(context:GetToolbarMinimumWidth(toolbar), 70)
+    H.Equal(trailing:GetRect(), 40)
+    H.Fails(function() context:SetToolbarItems(toolbar, { leading, leading }) end)
+    H.Fails(function() context:SetToolbarItems(toolbar, {
+        { control = leading, stretch = true }, { control = flexible, stretch = true },
+    }) end)
+    H.Equal(context:GetToolbarMinimumWidth(toolbar), 70, "invalid updates leave existing layout intact")
+    state:Load(2)
+    context:LayoutToolbar(toolbar)
+    H.Equal(context:GetToolbarMinimumWidth(toolbar), 70)
+    local other = state.lib:CreateContext("OtherToolbarOwner")
+    H.Fails(function() other:LayoutToolbar(toolbar) end)
 end)
 
 print(passed .. " library tests passed")

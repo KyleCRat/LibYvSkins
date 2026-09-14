@@ -7,21 +7,73 @@ lib._modules.Window = MINOR
 
 local Context = lib._contextPrototype
 
--- Modern chrome geometry. Content and footer interiors belong to the consumer.
-local INSET_LEFT, INSET_RIGHT, INSET_TOP, INSET_BOTTOM = 4, -6, -60, 34
-local CONTENT_LEFT, CONTENT_RIGHT, CONTENT_TOP, CONTENT_BOTTOM = 3, -3, -3, 2
-local HEADER_LEFT, HEADER_RIGHT, HEADER_TOP, HEADER_HEIGHT = 58, -6, -28, 28
-local FOOTER_LEFT, FOOTER_RIGHT, FOOTER_BOTTOM, FOOTER_HEIGHT = 3, -15, 4, 28
-local RESIZE_RIGHT, RESIZE_BOTTOM = -2, 3
-local CONTROL_SIZE, MODERN_CONTROL_GAP = 28, 2
-local COMPACT_PADDING, SEARCH_MIN_WIDTH = 8, 96
-local COMPACT_SECTION_GAP, COMPACT_CONTENT_PADDING = 4, 2
-local COMPACT_FOOTER_HEIGHT = 24
-local COMPACT_INSET_TOP = COMPACT_PADDING + CONTROL_SIZE + COMPACT_SECTION_GAP
-local COMPACT_INSET_BOTTOM = COMPACT_PADDING + COMPACT_FOOTER_HEIGHT + COMPACT_SECTION_GAP
-local COMPACT_CONTENT_GAIN = -INSET_TOP + INSET_BOTTOM - CONTENT_TOP + CONTENT_BOTTOM
-    - COMPACT_INSET_TOP - COMPACT_INSET_BOTTOM - COMPACT_CONTENT_PADDING * 2
 local DEFAULT_INSET_BACKGROUND = "Interface\\FrameGeneral\\UIFrameMidnightBackground"
+local EDGES = { "left", "right", "top", "bottom" }
+
+-- Layout is consumer-owned data. Skins supply only default measurements.
+local function Number(value, fallback, nonnegative)
+    if value == nil then return fallback end
+    assert(type(value) == "number" and value == value and math.abs(value) < math.huge,
+        "layout measurements must be finite numbers")
+    assert(not nonnegative or value >= 0, "layout sizes and padding must be nonnegative")
+    return value
+end
+
+local function Edges(value, defaults, nonnegative)
+    assert(value == nil or type(value) == "number" or type(value) == "table", "edges require a number or table")
+    local result = {}
+    for _, edge in ipairs(EDGES) do
+        local amount = value
+        if type(value) == "table" then amount = value[edge] end
+        result[edge] = Number(amount, defaults and defaults[edge] or 0, nonnegative)
+    end
+    return result
+end
+
+local function Section(value, defaultHeight)
+    assert(value == nil or value == false or type(value) == "table", "sections require a table or false")
+    value = value or {}
+    return {
+        height = Number(value.height, defaultHeight or 0, true),
+        gap = Number(value.gap, 0, true),
+        margin = Edges(value.margin),
+    }
+end
+
+local function ResolveLayout(spec, skin)
+    assert(type(spec) == "table", "window layout must be a table")
+    local metrics = lib._skins[skin].WindowMetrics
+    local header, footer = Section(spec.header), Section(spec.footer)
+    local titleBar = Section(spec.titleBar, spec.titleBar and metrics.titleBarHeight or 0)
+    assert(header.height >= titleBar.height + titleBar.margin.top + titleBar.margin.bottom,
+        "Header height must include its Title Bar")
+    local body = spec.body or {}
+    assert(type(body) == "table", "Body layout must be a table")
+    local close = spec.closeButton
+    if close == nil then close = titleBar.height > 0 and "titleBar" or false end
+    assert(close == false or close == "titleBar" or close == "manual", "invalid Close button placement")
+    assert(close ~= "titleBar" or titleBar.height > 0, "Close placement requires a Title Bar")
+    assert(spec.portrait == nil or type(spec.portrait) == "boolean", "portrait visibility must be boolean")
+    return {
+        padding = Edges(spec.padding, metrics.padding, true),
+        header = header, footer = footer, titleBar = titleBar,
+        body = { padding = Edges(body.padding, metrics.bodyPadding, true), margin = Edges(body.margin) },
+        closeButton = close, portrait = spec.portrait == true,
+    }
+end
+
+local function SectionExtent(section)
+    if section.height == 0 then return 0 end
+    return section.height + section.margin.top + section.margin.bottom + section.gap
+end
+
+local function BodyInsets(layout)
+    local outer, body = layout.padding, layout.body
+    return outer.left + body.margin.left + body.padding.left,
+        outer.right + body.margin.right + body.padding.right,
+        outer.top + SectionExtent(layout.header) + body.margin.top + body.padding.top,
+        outer.bottom + SectionExtent(layout.footer) + body.margin.bottom + body.padding.bottom
+end
 
 local definition = lib._roles.window or {}
 lib._roles.window = definition
@@ -33,11 +85,16 @@ end
 function definition.Initialize(handle, options)
     lib._InitializeControl(handle, options)
     handle.insetBackground = options.insetBackground or DEFAULT_INSET_BACKGROUND
-    handle.compactHeader = options.compactHeader == true
     handle.minWidth = options.minWidth
+    handle.onLayout, handle.getMinimumWidth = options.onLayout, options.getMinimumWidth
+    handle.movable, handle.resizable = options.movable ~= false, options.resizable ~= false
+    handle.layouts = {}
+    for skin in pairs(lib._skins) do
+        handle.layouts[skin] = ResolveLayout(options.layouts and options.layouts[skin] or options.layout or {}, skin)
+    end
     local frame = handle.target
     handle.parts.surface = lib._CreateSurface(handle, frame, frame)
-    handle.parts.contentSurface = lib._CreateSurface(handle, frame.Inset, frame.Inset)
+    handle.parts.bodySurface = lib._CreateSurface(handle, frame.Inset, frame.Inset)
     handle.parts.chrome = {
         frame.Bg, frame.NineSlice, frame.Inset.Bg, frame.Inset.NineSlice, frame.PortraitContainer,
     }
@@ -48,135 +105,112 @@ function definition.Initialize(handle, options)
         handle.closePoints[index] = { frame.CloseButton:GetPoint(index) }
     end
     handle.closeWidth, handle.closeHeight = frame.CloseButton:GetSize()
+    handle.titlePoints = {}
+    for index = 1, frame.TitleContainer:GetNumPoints() do
+        handle.titlePoints[index] = { frame.TitleContainer:GetPoint(index) }
+    end
+    handle.titleHeight = frame.TitleContainer:GetHeight()
 end
 
 function definition.ApplyAppearance(handle)
+    handle.context:_LayoutWindow(handle)
     handle.context:_GetRenderer().Window(handle)
 end
 
 function definition.Layout(handle)
 end
 
-function Context:GetWindowChromeWidth(frame)
-    if frame and self:IsWindowCompact(frame) then
-        return (COMPACT_PADDING + COMPACT_CONTENT_PADDING) * 2
+function Context:GetWindowBodyWidthOverhead(frame)
+    if frame then
+        local left, right = BodyInsets(self._components[frame].layout)
+        return left + right
     end
-    return INSET_LEFT - INSET_RIGHT + CONTENT_LEFT - CONTENT_RIGHT
+    local metrics = self:_GetRenderer().WindowMetrics
+    return metrics.padding.left + metrics.padding.right + metrics.bodyPadding.left + metrics.bodyPadding.right
 end
 
-function Context:IsWindowCompact(frame)
+function Context:GetWindowBodyReserve(frame)
     local handle = self._components[frame]
-    return handle.compactHeader and self:GetAppliedSkin() ~= "modern"
-end
-
-function Context:GetWindowContentReserve(frame)
-    -- Prewarm the largest viewport, even when starting with Modern chrome.
-    if self._components[frame].compactHeader and not self:IsWindowCompact(frame) then
-        return COMPACT_CONTENT_GAIN
+    local _, _, top, bottom = BodyInsets(handle.layout)
+    local minimum = top + bottom
+    for _, layout in pairs(handle.layouts) do
+        local _, _, candidateTop, candidateBottom = BodyInsets(layout)
+        minimum = math.min(minimum, candidateTop + candidateBottom)
     end
-    return 0
+    return top + bottom - minimum
 end
 
 function Context:GetWindowMinimumWidth(frame)
     local handle = self._components[frame]
-    local compact = self:IsWindowCompact(frame)
-    local gap = compact and COMPACT_SECTION_GAP or MODERN_CONTROL_GAP
-    local width = SEARCH_MIN_WIDTH
-    for _, control in ipairs(handle.headerControls or {}) do
-        if control:IsShown() then width = width + control:GetWidth() + gap end
-    end
-    if compact then
-        width = width + 2 * COMPACT_PADDING + CONTROL_SIZE + gap
-    else
-        width = width + HEADER_LEFT - HEADER_RIGHT
-    end
+    local width = handle.getMinimumWidth and handle.getMinimumWidth(frame) or 0
     return math.max(handle.minWidth, width)
 end
 
-function Context:SetHeaderControls(frame, controls, search)
+function Context:SetWindowLayout(frame, layout, skin)
     local handle = assert(self._components[frame], "window must belong to this context")
-    assert(handle.role == "window" and type(controls) == "table" and search, "header requires controls and search")
-    handle.headerControls, handle.search = controls, search
-    self:LayoutHeader(frame)
-end
-
-function Context:LayoutHeader(frame)
-    local handle = self._components[frame]
-    if not handle.headerControls then return end
-    local compact = self:IsWindowCompact(frame)
-    local gap = compact and COMPACT_SECTION_GAP or MODERN_CONTROL_GAP
-    local previous
-    for _, control in ipairs(handle.headerControls) do
-        if control:IsShown() then
-            control:ClearAllPoints()
-            if previous then
-                control:SetPoint("LEFT", previous, "RIGHT", gap, 0)
-            else
-                control:SetPoint("LEFT", frame.header, "LEFT", 0, 0)
-            end
-            previous = control
+    assert(handle.role == "window", "layout requires a window")
+    assert(not InCombatLockdown() and not handle.moving and not frame.resizeButton:IsActive(),
+        "window layout cannot change during combat or a window drag")
+    assert(skin == nil or lib._skins[skin], "unknown layout skin")
+    local resolved = {}
+    for id in pairs(lib._skins) do
+        if not skin or skin == id then
+            resolved[id] = ResolveLayout(layout, id)
         end
     end
-    local search = handle.search
-    search:ClearAllPoints()
-    if previous then
-        search:SetPoint("TOPLEFT", previous, "TOPRIGHT", gap, 0)
-        search:SetPoint("BOTTOMLEFT", previous, "BOTTOMRIGHT", gap, 0)
-    else
-        search:SetPoint("TOPLEFT", frame.header, "TOPLEFT", 0, 0)
-        search:SetHeight(CONTROL_SIZE)
-    end
-    if compact then
-        search:SetPoint("RIGHT", frame.CloseButton, "LEFT", -gap, 0)
-    else
-        search:SetPoint("RIGHT", frame.header, "RIGHT", 0, 0)
-    end
+    for id, value in pairs(resolved) do handle.layouts[id] = value end
+    self:_LayoutWindow(handle)
+    handle:RefreshAppearance()
+    self:RefreshGeometry(frame)
 end
 
 function Context:_LayoutWindow(handle)
     local frame = handle.target
-    local compact = self:IsWindowCompact(frame)
     local skin = self:GetAppliedSkin()
-    if handle.layoutSkin == skin then return end
-    handle.layoutSkin = skin
-    handle.layoutCompact = compact
-    local flat = skin == "flat"
-    frame.Inset:ClearAllPoints()
-    frame.Inset:SetPoint("TOPLEFT", frame, "TOPLEFT", compact and COMPACT_PADDING or INSET_LEFT,
-        compact and -COMPACT_INSET_TOP or INSET_TOP)
-    frame.Inset:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", compact and -COMPACT_PADDING or INSET_RIGHT,
-        compact and COMPACT_INSET_BOTTOM or INSET_BOTTOM)
-    frame.content:ClearAllPoints()
-    frame.content:SetPoint("TOPLEFT", frame.Inset, "TOPLEFT", compact and COMPACT_CONTENT_PADDING or CONTENT_LEFT,
-        compact and -COMPACT_CONTENT_PADDING or CONTENT_TOP)
-    frame.content:SetPoint("BOTTOMRIGHT", frame.Inset, "BOTTOMRIGHT", compact and -COMPACT_CONTENT_PADDING or CONTENT_RIGHT,
-        compact and COMPACT_CONTENT_PADDING or CONTENT_BOTTOM)
-    frame.footer:ClearAllPoints()
-    frame.footer:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", compact and COMPACT_PADDING or FOOTER_LEFT,
-        compact and COMPACT_PADDING or FOOTER_BOTTOM)
-    frame.footer:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT",
-        compact and -(COMPACT_PADDING + frame.resizeButton:GetWidth()) or FOOTER_RIGHT,
-        compact and COMPACT_PADDING or FOOTER_BOTTOM)
-    frame.footer:SetHeight(compact and COMPACT_FOOTER_HEIGHT or FOOTER_HEIGHT)
-    frame.resizeButton:ClearAllPoints()
-    frame.resizeButton:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", flat and 0 or RESIZE_RIGHT, flat and 0 or RESIZE_BOTTOM)
+    local layout = handle.layouts[skin]
+    if handle.layout == layout then return end
+    handle.layout = layout
+    local padding, header, footer, body = layout.padding, layout.header, layout.footer, layout.body
+
     frame.header:ClearAllPoints()
-    frame.header:SetPoint("TOPLEFT", frame, "TOPLEFT", compact and COMPACT_PADDING or HEADER_LEFT,
-        compact and -COMPACT_PADDING or HEADER_TOP)
-    frame.header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", compact and -COMPACT_PADDING or HEADER_RIGHT,
-        compact and -COMPACT_PADDING or HEADER_TOP)
-    frame.header:SetHeight(CONTROL_SIZE)
-    frame.TitleContainer:SetShown(not compact)
-    local close = frame.CloseButton
-    close:ClearAllPoints()
-    if compact then
-        close:SetSize(CONTROL_SIZE, CONTROL_SIZE)
-        close:SetPoint("RIGHT", frame.header, "RIGHT", 0, 0)
-    else
-        close:SetSize(handle.closeWidth, handle.closeHeight)
-        for _, point in ipairs(handle.closePoints) do close:SetPoint(unpack(point)) end
-    end
-    self:LayoutHeader(frame)
+    frame.header:SetPoint("TOPLEFT", frame, "TOPLEFT", padding.left + header.margin.left,
+        -padding.top - header.margin.top)
+    frame.header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -padding.right - header.margin.right,
+        -padding.top - header.margin.top)
+    frame.header:SetHeight(header.height)
+    frame.header:SetShown(header.height > 0)
+
+    frame.footer:ClearAllPoints()
+    frame.footer:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", padding.left + footer.margin.left,
+        padding.bottom + footer.margin.bottom)
+    frame.footer:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -padding.right - footer.margin.right,
+        padding.bottom + footer.margin.bottom)
+    frame.footer:SetHeight(footer.height)
+    frame.footer:SetShown(footer.height > 0)
+
+    frame.Inset:ClearAllPoints()
+    frame.Inset:SetPoint("TOPLEFT", frame, "TOPLEFT", padding.left + body.margin.left,
+        -padding.top - SectionExtent(header) - body.margin.top)
+    frame.Inset:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -padding.right - body.margin.right,
+        padding.bottom + SectionExtent(footer) + body.margin.bottom)
+    frame.body:ClearAllPoints()
+    frame.body:SetPoint("TOPLEFT", frame.Inset, "TOPLEFT", body.padding.left, -body.padding.top)
+    frame.body:SetPoint("BOTTOMRIGHT", frame.Inset, "BOTTOMRIGHT", -body.padding.right, body.padding.bottom)
+
+    local title = layout.titleBar
+    frame.titleBar:ClearAllPoints()
+    frame.titleBar:SetPoint("TOPLEFT", frame.header, "TOPLEFT", title.margin.left, -title.margin.top)
+    frame.titleBar:SetPoint("TOPRIGHT", frame.header, "TOPRIGHT", -title.margin.right, -title.margin.top)
+    frame.titleBar:SetHeight(title.height)
+    frame.titleBar:SetShown(title.height > 0)
+    frame.TitleContainer:SetShown(title.height > 0)
+    frame.CloseButton:SetShown(layout.closeButton ~= false)
+    frame.PortraitContainer:SetShown(layout.portrait)
+    frame.resizeButton:SetShown(handle.resizable)
+    -- Native art-specific title/close/grip offsets are renderer-owned, not a
+    -- toolbar policy. Manual Close placement remains entirely consumer-owned.
+    self:_GetRenderer().WindowLayout(handle)
+    if handle.onLayout then handle.onLayout(frame) end
 end
 
 -- Register only non-action backgrounds. Child buttons retain their own native
@@ -201,7 +235,7 @@ local function ValidateOptions(parent, options)
     assert(options.name == nil or (type(options.name) == "string" and options.name ~= ""),
         "window name must be a non-empty string")
     assert(options.title == nil or type(options.title) == "string", "window title must be a string")
-    assert(options.compactHeader == nil or type(options.compactHeader) == "boolean", "compactHeader must be boolean")
+    assert(options.compactHeader == nil, "use explicit window layouts instead of compactHeader")
     for _, key in ipairs({ "minWidth", "minHeight" }) do
         assert(type(options[key]) == "number" and options[key] > 0, "windows require positive minimum dimensions")
     end
@@ -209,8 +243,20 @@ local function ValidateOptions(parent, options)
         "window maxWidth must be at least minWidth")
     assert(options.maxHeight == nil or (type(options.maxHeight) == "number" and options.maxHeight >= options.minHeight),
         "window maxHeight must be at least minHeight")
-    for _, key in ipairs({ "onMoveStopped", "onResizeStopped" }) do
+    for _, key in ipairs({ "onMoveStopped", "onResizeStopped", "onLayout", "getMinimumWidth" }) do
         assert(options[key] == nil or type(options[key]) == "function", "window callbacks must be functions")
+    end
+    for _, key in ipairs({ "movable", "resizable" }) do
+        assert(options[key] == nil or type(options[key]) == "boolean", "window behavior options must be boolean")
+    end
+    assert(options.layouts == nil or type(options.layouts) == "table", "layouts must be a table")
+    assert(options.layout == nil or type(options.layout) == "table", "layout must be a table")
+    for skin, layout in pairs(options.layouts or {}) do
+        assert(lib._skins[skin], "unknown layout skin")
+        assert(type(layout) == "table", "window layout must be a table")
+    end
+    for skin in pairs(lib._skins) do
+        ResolveLayout(options.layouts and options.layouts[skin] or options.layout or {}, skin)
     end
 end
 
@@ -221,9 +267,9 @@ function Context:CreateWindow(parent, options)
     frame:SetFrameStrata(options.strata or "HIGH")
     frame:SetToplevel(true)
     frame:SetClampedToScreen(true)
-    frame:SetMovable(true)
+    frame:SetMovable(options.movable ~= false)
     frame:EnableMouse(true)
-    frame:SetResizable(true)
+    frame:SetResizable(options.resizable ~= false)
     frame:SetResizeBounds(options.minWidth, options.minHeight, options.maxWidth, options.maxHeight)
     frame:SetSize(options.minWidth, options.minHeight)
     frame:SetTitle(options.title or "")
@@ -232,27 +278,13 @@ function Context:CreateWindow(parent, options)
         frame:SetPortraitTexCoord(0, 1, 0, 1)
     end
 
-    -- Keep Blizzard's outer background, native title/portrait, and close button.
-    frame.Inset:ClearAllPoints()
-    frame.Inset:SetPoint("TOPLEFT", frame, "TOPLEFT", INSET_LEFT, INSET_TOP)
-    frame.Inset:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", INSET_RIGHT, INSET_BOTTOM)
-
     frame.header = CreateFrame("Frame", nil, frame)
-    frame.header:SetPoint("TOPLEFT", frame, "TOPLEFT", HEADER_LEFT, HEADER_TOP)
-    frame.header:SetPoint("TOPRIGHT", frame, "TOPRIGHT", HEADER_RIGHT, HEADER_TOP)
-    frame.header:SetHeight(HEADER_HEIGHT)
-
-    frame.content = CreateFrame("Frame", nil, frame)
-    frame.content:SetPoint("TOPLEFT", frame.Inset, "TOPLEFT", CONTENT_LEFT, CONTENT_TOP)
-    frame.content:SetPoint("BOTTOMRIGHT", frame.Inset, "BOTTOMRIGHT", CONTENT_RIGHT, CONTENT_BOTTOM)
-
+    frame.titleBar = CreateFrame("Frame", nil, frame.header)
+    frame.body = CreateFrame("Frame", nil, frame)
     frame.footer = CreateFrame("Frame", nil, frame)
-    frame.footer:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", FOOTER_LEFT, FOOTER_BOTTOM)
-    frame.footer:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", FOOTER_RIGHT, FOOTER_BOTTOM)
-    frame.footer:SetHeight(FOOTER_HEIGHT)
+    frame.TitleContainer:SetParent(frame.titleBar)
 
     frame.resizeButton = CreateFrame("Button", nil, frame, "PanelResizeButtonTemplate")
-    frame.resizeButton:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", RESIZE_RIGHT, RESIZE_BOTTOM)
     frame.resizeButton:Init(frame, options.minWidth, options.minHeight, options.maxWidth, options.maxHeight)
 
     local root = self:_GetGeometryRoot(frame)
@@ -266,12 +298,12 @@ function Context:CreateWindow(parent, options)
     end
     frame:HookScript("OnShow", RefreshGeometry)
     frame:HookScript("OnSizeChanged", RefreshGeometry)
-    frame.content:HookScript("OnShow", RefreshGeometry)
-    frame.content:HookScript("OnSizeChanged", RefreshGeometry)
+    frame.body:HookScript("OnShow", RefreshGeometry)
+    frame.body:HookScript("OnSizeChanged", RefreshGeometry)
 
     local onMoveStopped, onResizeStopped = options.onMoveStopped, options.onResizeStopped
     local function StartMove()
-        if InCombatLockdown() or handle.moving then return end
+        if not handle.movable or InCombatLockdown() or handle.moving then return end
         handle.moving = true
         frame:StartMoving()
     end
@@ -286,7 +318,7 @@ function Context:CreateWindow(parent, options)
         self:RetryPendingSkin()
     end
     handle.startMove, handle.stopMove, handle.dragRegions = StartMove, StopMove, {}
-    for _, drag in ipairs({ frame, frame.TitleContainer, frame.header, frame.content, frame.footer, frame.Inset }) do
+    for _, drag in ipairs({ frame, frame.titleBar, frame.TitleContainer, frame.header, frame.body, frame.footer, frame.Inset }) do
         self:RegisterWindowDragRegion(frame, drag)
     end
     frame.resizeButton:SetOnResizeStoppedCallback(function()

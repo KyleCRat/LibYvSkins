@@ -16,6 +16,7 @@
     <Script file="Components\NativeButton.lua"/>
     <Script file="Integrations\PopupSlider.lua"/>
     <Script file="Window.lua"/>
+    <Script file="Toolbar.lua"/>
     <Script file="Components\Separator.lua"/>
     <Script file="Components\ExpandableHeader.lua"/>
 </Ui>

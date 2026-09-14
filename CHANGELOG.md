@@ -13,7 +13,7 @@
 - Added shared background dragging and explicit non-action drag-region
   registration without intercepting child actions.
 - Added a Flat renderer, one-physical-pixel surfaces and icon borders,
-  opt-in compact window chrome, and shared toolbar layout/minimum measurements.
+  and shared toolbar layout/minimum measurements.
 - Added requested/applied skin state, coalesced live transitions, combat and
   move/resize/popup-drag deferral, and consumer lifecycle/status callbacks.
 - Added Modern button, tab, checkbox, search/edit-box, scrollbar, text, texture,
@@ -29,7 +29,7 @@
   tertiary bar and right-side state arrow, without a leading icon slot or
   divider. Raw text/click/enabled APIs remain accessible; appearance handles
   own expansion visuals, context recoloring, and pooled hover/pressed cleanup.
-- Added a canonical Modern window constructor with raw header/content/footer
+- Added a window constructor with raw Header/Body/Footer and optional Title Bar
   parts, native close/resize controls, move/resize callbacks, and window-owned
   pixel refreshes. Consumers build directly on the library's frame structure.
 - Added isolated per-addon appearance contexts, stable separator handles,
@@ -43,6 +43,17 @@
   context-isolation, and mixed/equal-MINOR load-order tests.
 
 ### Changed
+- Separated window structure from skins. Consumers declare optional section
+  heights, spacing, Title Bar/portrait visibility, and Close placement; Body
+  fills the remainder. Added copied per-skin layouts, explicit layout updates,
+  generic minimum-width callbacks, and calculated viewport prewarm reserves.
+- Replaced the search-specific header helper with independent toolbars usable
+  in any section, with fixed controls and an optional flexible-width control.
+  Converted the development example to retain a Title Bar and two-row Footer
+  in both skins; added optional-section and non-search toolbar coverage.
+- Replaced the unreleased `compactHeader`, header-helper, and content-naming
+  contracts together with the sole consumer. No release/MINOR bump or saved-data
+  migration is required; renderer artwork and optical corrections are retained.
 - Decoupled Modern and Flat rendering. Shared component setup owns fonts,
   opacity, native checkmark artwork, and plain-region styling; each skin
   paints its own appearance without invoking or aliasing another renderer.
