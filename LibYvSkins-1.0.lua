@@ -9,8 +9,12 @@ end
 -- (WoW truncates long source paths). Standalone packages use the library root.
 local libraryFolder = addonName == MAJOR and "" or "Libs\\" .. MAJOR .. "\\"
 local texturePath = "Interface\\AddOns\\" .. addonName .. "\\" .. libraryFolder .. "Media\\Textures\\"
+lib._headerTabTexture = texturePath .. "common-header-tab\\common-header-tab-atlas.tga"
 lib._media = {
     close = texturePath .. "Vertex-Close.tga",
+    clone = texturePath .. "Vertex-Clone.tga",
+    lock = texturePath .. "Vertex-Lock.tga",
+    unlock = texturePath .. "Vertex-Unlock.tga",
     settings = texturePath .. "Vertex-Settings.tga",
     gear = texturePath .. "Vertex-Gear.tga",
     scale = texturePath .. "Vertex-Scale.tga",

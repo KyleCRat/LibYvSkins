@@ -55,7 +55,15 @@ local function HideButtonArt(parts)
 end
 
 function Flat.Button(handle)
-    HideButtonArt(handle.parts)
+    if handle.parts.headerTab then
+        for _, slices in pairs(handle.parts.headerTab) do
+            for _, texture in ipairs(slices) do
+                texture:Hide()
+            end
+        end
+    else
+        HideButtonArt(handle.parts)
+    end
     handle.parts.label:ClearAllPoints()
     handle.parts.label:SetPoint("CENTER", handle.target, "CENTER", 0, handle.labelOffsetY + TEXT_OFFSET_Y)
     if handle.parts.checked then

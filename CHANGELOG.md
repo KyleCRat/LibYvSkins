@@ -3,11 +3,18 @@
 ## Unreleased
 
 ### Added
+- Added opt-in `tabStyle = "header"` to `CreateTab`, with adjustable width and
+  height, proportional corners, centered labels and pixel-aligned artwork.
+  Compact tabs keep their artwork within their bounds; the default height is
+  64 UI units. Border and accent colors match Blizzard's side tabs, with bright
+  pale-gold highlights and smooth scaling. Flat uses its existing selected-tab
+  treatment.
 - Added icon `artworkOutset` to enlarge artwork inside its existing Modern/Flat
   border footprint without resizing the parent control or adding regions.
 - Added bundled centered Vertex control glyphs and `GetIconTexture(name)` for
-  consumers, including dedicated arrow/caret directions. Added button
-  `preserveIconColor` for multicolor artwork that must retain its native colors.
+  consumers, including clone, lock/unlock and dedicated arrow/caret icons.
+  Added button `preserveIconColor` for multicolor artwork that must retain its
+  native colors.
   Command and action-icon glyphs share Modern's gold tint and Flat's accent
   tint; Modern disabled glyphs remain neutral gray.
 - Added shared background dragging and explicit non-action drag-region

@@ -292,7 +292,7 @@ end)
 | Factory | Modern presentation / state |
 | --- | --- |
 | `CreateButton` | Regular tertiary command or `variant = "square"`; hover, press, disabled art. Handle: `SetVariant("command" / "square")`. |
-| `CreateTab` | Regular tertiary selected state with a 3-unit outset. `SetSelected(boolean)` takes precedence over hover and press. |
+| `CreateTab` | Regular tertiary selected state with a 3-unit outset, or nine-slice header artwork with `tabStyle = "header"`. `SetSelected(boolean)` takes precedence over hover and press. |
 | `CreateCheckbox` | Square tertiary CheckButton with native checked/disabled-checked textures. Use raw `SetChecked` / `GetChecked`. |
 | `CreateEditBox` | Tertiary-depressed input with native input scripts and optional focus glow. No value-commit policy. |
 | `CreateSearchBox` | Same background, preserving native search/placeholder/clear behavior and tuned icon anchors. |
@@ -310,15 +310,16 @@ context font at size 13, or the corresponding native FontObject when omitted.
 For buttons, `fontObject` takes precedence over the custom font.
 
 `LibYvSkins:GetIconTexture(name)` returns a bundled Vertex texture path for
-`close`, `settings`, `gear`, `scale`, `plus`, `minus`, `arrowUp`, `arrowDown`,
-`arrowLeft`, `arrowRight`, `caretUp`, `caretDown`, `caretLeft`, or `caretRight`.
+`close`, `clone`, `lock`, `unlock`, `settings`, `gear`, `scale`, `plus`, `minus`,
+`arrowUp`, `arrowDown`, `arrowLeft`, `arrowRight`, `caretUp`, `caretDown`,
+`caretLeft`, or `caretRight`.
 The up-arrow asset is named `Vertex-Arrow.tga`. Unknown names raise an error.
 Use these paths with existing button, texture, or icon factories; directional
 variants do not need rotation or flipped UVs.
 
 Buttons accept `text`, either `icon` or `iconAtlas`, `iconWidth` / `iconHeight`
 (18), `iconAlpha` (1), `disabledIconAlpha` (0.5), `pressIcon` (false), and
-`labelOffsetY` (1; Flat adds a -2 optical adjustment). `template` may supply native behavior, such as
+`labelOffsetY` (1, with skin-specific optical adjustments). `template` may supply native behavior, such as
 `DisabledTooltipButtonTemplate`; use behavior-only templates without competing
 art. `button.Text` and the handle's `parts.label` refer to its native FontString;
 `parts.icon` is present when requested. Button glyphs use gold in Modern and
@@ -328,6 +329,19 @@ alpha still apply. It defaults to false.
 Checkbox `checkmarkScale` defaults to 1.25. Input `focusGlow` defaults to true.
 Caller-owned anchors and dimensions
 remain independent of input values and visual state.
+
+`CreateTab(parent, { tabStyle = "header", text = "Display" })` opts into the
+bundled header atlas in Modern. It defaults to 64 UI units high; the effective
+UI scale determines its physical size. Corners retain their size as width and
+height increase, while the edges and fill stretch. Compact tabs reduce the
+corners proportionally in both dimensions. A dark grey background accent sits
+above the fill and beneath the border and gold highlights.
+Slice boundaries snap to physical screen pixels; linear filtering keeps the
+antialiased corners and glow smooth when scaled. Caller-owned button anchors
+and dimensions stay intact. Header tabs use the command variant and retain the usual
+`SetSelected` handle and native click/enabled APIs. Flat renders these tabs with
+its standard flat surfaces.
+Omitting `tabStyle` retains the existing tertiary tab appearance.
 
 Scrollbars optionally accept `anchor` and a positive `gutterWidth` to let the
 renderer own their outer anchors. The gutter is inside the anchor's right edge:
