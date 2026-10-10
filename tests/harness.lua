@@ -204,6 +204,7 @@ function Harness.New()
         return setmetatable({ parent = self, layer = layer, frameType = "FontString" }, Region)
     end
     function Region:RegisterEvent(event) self.events[event] = true end
+    function Region:UnregisterEvent(event) self.events[event] = nil end
     function Region:SetScript(script, callback) self.scripts[script] = callback end
     function Region:GetScript(script) return self.scripts[script] end
     function Region:HookScript(script, callback)
@@ -249,7 +250,11 @@ function Harness.New()
     function Region:SetOnResizeStoppedCallback(callback) self.resizeStoppedCallback = callback end
     function Region:SetMaxWidth(value) self.maxWidth = value end
     function Region:IsActive() return self.isActive == true end
-    function Region:OnMouseUp() self:RunScript("OnMouseUp") end
+    function Region:OnMouseUp()
+        self.isActive = false
+        self.target:StopMovingOrSizing()
+        self.resizeStoppedCallback(self.target)
+    end
     env.MinimalScrollBarThumbScriptsMixin = {
         OnButtonStateChanged = function(thumb)
             thumb.nativeStateCalls = (thumb.nativeStateCalls or 0) + 1
@@ -295,11 +300,7 @@ function Harness.New()
             normal:SetTexture("native-resize")
             frame:SetNormalTexture(normal)
             frame:SetScript("OnMouseDown", function(self) self.isActive = true; self.target:StartSizing() end)
-            frame:SetScript("OnMouseUp", function(self)
-                self.isActive = false
-                self.target:StopMovingOrSizing()
-                self.resizeStoppedCallback(self.target)
-            end)
+            frame:SetScript("OnMouseUp", Region.OnMouseUp)
         elseif template == "SearchBoxNineSliceTemplate" then
             frame.Background = frame:CreateTexture()
             frame.Instructions = frame:CreateFontString()

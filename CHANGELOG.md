@@ -38,7 +38,8 @@
   own expansion visuals, context recoloring, and pooled hover/pressed cleanup.
 - Added a window constructor with raw Header/Body/Footer and optional Title Bar
   parts, native close/resize controls, move/resize callbacks, and window-owned
-  pixel refreshes. Consumers build directly on the library's frame structure.
+  pixel refreshes. Releasing a resize outside the grip still completes it once.
+  Consumers build directly on the library's frame structure.
 - Added isolated per-addon appearance contexts, stable separator handles,
   context-owned color tokens, and explicit geometry/appearance refresh paths.
   A direct separator factory creates and registers each visual in one call.

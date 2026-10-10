@@ -587,6 +587,69 @@ Test("window callbacks preserve native movement, resize, close and consumer scri
     H.Equal(shown, 2)
 end)
 
+Test("window resize finishes once when released outside the grip", function()
+    local state = H.New()
+    local context = state:Load():CreateContext("ResizeRelease")
+    local parent = state:Region(0, 0, 1024, 768, 1)
+    local stopped = 0
+    local window = context:CreateWindow(parent, {
+        minWidth = 400, minHeight = 300,
+        onResizeStopped = function(target)
+            H.Equal(target.sizing, false)
+            stopped = stopped + 1
+        end,
+    })
+    window:Show()
+    local grip = window.resizeButton
+
+    grip:RunScript("OnMouseDown", "LeftButton")
+    H.Equal(grip.events.GLOBAL_MOUSE_UP, true)
+    grip:RunScript("OnEvent", "GLOBAL_MOUSE_UP", "RightButton")
+    state:Flush()
+    H.Equal(grip:IsActive(), true, "another mouse button must not stop the resize")
+    grip:RunScript("OnEvent", "GLOBAL_MOUSE_UP", "LeftButton")
+    state:Flush()
+    H.Equal(stopped, 1)
+    H.Equal(grip:IsActive(), false)
+    H.Equal(grip.events.GLOBAL_MOUSE_UP, nil)
+    H.Equal(context._components[grip].pressed, false)
+
+    -- Native mouse-up can run before or after the global event.
+    for _, globalFirst in ipairs({ true, false }) do
+        grip:RunScript("OnMouseDown", "LeftButton")
+        if globalFirst then
+            grip:RunScript("OnEvent", "GLOBAL_MOUSE_UP", "LeftButton")
+        end
+        grip:RunScript("OnMouseUp", "LeftButton")
+        if not globalFirst then
+            grip:RunScript("OnEvent", "GLOBAL_MOUSE_UP", "LeftButton")
+        end
+        local nativeStops = stopped
+        state:Flush()
+        H.Equal(stopped, nativeStops, "native completion must not fire twice")
+        H.Equal(grip.events.GLOBAL_MOUSE_UP, nil)
+    end
+    H.Equal(stopped, 3)
+
+    grip:RunScript("OnMouseDown", "LeftButton")
+    grip:RunScript("OnEvent", "GLOBAL_MOUSE_UP", "LeftButton")
+    grip:RunScript("OnMouseDown", "LeftButton")
+    state:Flush()
+    H.Equal(grip:IsActive(), true, "an old release must not stop a new resize")
+    H.Equal(stopped, 3)
+    grip:RunScript("OnEvent", "GLOBAL_MOUSE_UP", "LeftButton")
+    state:Flush()
+    H.Equal(stopped, 4)
+
+    grip:RunScript("OnMouseDown", "LeftButton")
+    grip:RunScript("OnEvent", "GLOBAL_MOUSE_UP", "LeftButton")
+    window:Hide()
+    state:Flush()
+    H.Equal(stopped, 5, "hiding must finish the resize once")
+    H.Equal(grip:IsActive(), false)
+    H.Equal(grip.events.GLOBAL_MOUSE_UP, nil)
+end)
+
 Test("invalid window contracts fail before allocating frames", function()
     local state = H.New()
     local context = state:Load():CreateContext("Validation")

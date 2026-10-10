@@ -322,11 +322,35 @@ function Context:CreateWindow(parent, options)
         self:RegisterWindowDragRegion(frame, drag)
     end
     frame.resizeButton:SetOnResizeStoppedCallback(function()
+        frame.resizeButton:UnregisterEvent("GLOBAL_MOUSE_UP")
+        handle.resizeMouseButton = nil
         if onResizeStopped then
             onResizeStopped(frame)
         end
         RefreshGeometry()
         self:RetryPendingSkin()
+    end)
+    frame.resizeButton:HookScript("OnMouseDown", function(button, mouseButton)
+        if button:IsActive() then
+            handle.resizeSequence = (handle.resizeSequence or 0) + 1
+            handle.resizeMouseButton = mouseButton
+            button:RegisterEvent("GLOBAL_MOUSE_UP")
+        end
+    end)
+    frame.resizeButton:HookScript("OnEvent", function(button, event, mouseButton)
+        if event ~= "GLOBAL_MOUSE_UP" or mouseButton ~= handle.resizeMouseButton then
+            return
+        end
+        local sequence = handle.resizeSequence
+        -- Let native mouse-up finish first; an outside release may not reach the grip.
+        C_Timer.After(0, function()
+            if button:IsActive() and handle.resizeSequence == sequence then
+                button:OnMouseUp()
+                local appearance = self._components[button]
+                appearance.pressed = false
+                appearance:RefreshAppearance()
+            end
+        end)
     end)
     frame:HookScript("OnHide", function()
         if handle.moving then StopMove() end

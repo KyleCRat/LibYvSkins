@@ -151,7 +151,9 @@ an explicit layout change that increases its viewport.
 
 Non-action window backgrounds support native dragging outside combat in both
 skins; optional `onMoveStopped(frame)` and
-`onResizeStopped(frame)` run after movement ends. The library owns no saved
+`onResizeStopped(frame)` run after movement ends. Resize completion also handles
+releases outside the grip without duplicating the native completion callback.
+The library owns no saved
 position, scale, or size: consumers restore/persist these and call
 `context:RefreshGeometry(window)` after explicit scale/position changes.
 Consumers also own client-position-saving policy (`SetDontSavePosition` /
