@@ -312,7 +312,7 @@ context font at size 13, or the corresponding native FontObject when omitted.
 For buttons, `fontObject` takes precedence over the custom font.
 
 `LibYvSkins:GetIconTexture(name)` returns a bundled Vertex texture path for
-`close`, `clone`, `lock`, `unlock`, `settings`, `gear`, `scale`, `plus`, `minus`,
+`close`, `clone`, `lock`, `unlock`, `visible`, `hidden`, `settings`, `gear`, `scale`, `plus`, `minus`,
 `arrowUp`, `arrowDown`, `arrowLeft`, `arrowRight`, `caretUp`, `caretDown`,
 `caretLeft`, or `caretRight`.
 The up-arrow asset is named `Vertex-Arrow.tga`. Unknown names raise an error.

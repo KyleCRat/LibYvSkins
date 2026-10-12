@@ -2270,6 +2270,8 @@ Test("owned close media follows the winning loader and restores native Modern ar
             caretDown = "Vertex-Caret-Down.tga",
             lock = "Vertex-Lock.tga",
             unlock = "Vertex-Unlock.tga",
+            visible = "Visible.tga",
+            hidden = "Hidden.tga",
         }) do
             local path = "Interface\\AddOns\\" .. addonName .. "\\" .. folder .. "Media\\Textures\\" .. filename
             H.Equal(lib:GetIconTexture(name), path, "action glyphs must use the winning embedded or standalone media root")
