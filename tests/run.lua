@@ -246,6 +246,87 @@ Test("four-edge borders have two-pixel strokes without overlapping corners", fun
     end
 end)
 
+Test("relative borders preserve caller size through float noise, movement and resize", function()
+    local state = H.New()
+    local Pixel = state:Load().Pixel
+    local function Check(border, bounds, unit, thickness, outset)
+        local left, bottom, width, height = bounds:GetRect()
+        local size = thickness * unit
+        local expected = {
+            { left - outset, bottom + height + outset - size, width + outset * 2, size },
+            { left - outset, bottom - outset, width + outset * 2, size },
+            { left - outset, bottom - outset + size, size, height + outset * 2 - size * 2 },
+            { left + width + outset - size, bottom - outset + size, size, height + outset * 2 - size * 2 },
+        }
+        for index, edge in ipairs(border.edges) do
+            H.Equal(edge:IsShown(), true)
+            local actual = { edge:GetRect() }
+            for coordinate = 1, 4 do H.Near(actual[coordinate] / unit, expected[index][coordinate] / unit) end
+        end
+    end
+    for _, height in ipairs({ 1080, 1440, 2160 }) do
+        state.height = height
+        Pixel.InvalidateDisplay()
+        for _, scale in ipairs({ 0.64, 0.85, 1 }) do
+            local bounds = state:Region(0, 0, 1, 1, scale)
+            local metrics = Pixel.UpdateMetrics({}, bounds)
+            local unit = metrics.unit
+            bounds.width, bounds.height = 18 * unit, 53 * unit
+            local border = Pixel.CreateBorder(bounds, bounds)
+            local regions = state.regions
+            for _, origin in ipairs({ -1024, 0, 350, 1601 }) do
+                for _, noise in ipairs({ -0.0002, 0, 0.0002 }) do
+                    bounds.left, bounds.bottom = (origin + noise) * unit, (origin - noise) * unit
+                    for _, outset in ipairs({ 0, 2 * unit }) do
+                        border:LayoutRelative(metrics, 1, outset)
+                        Check(border, bounds, unit, 1, outset)
+                        bounds.left, bounds.bottom = bounds.left + 5 * unit, bounds.bottom - 3 * unit
+                        bounds.width, bounds.height = 19 * unit, 54 * unit
+                        Check(border, bounds, unit, 1, outset)
+                        bounds.width, bounds.height = 18 * unit, 53 * unit
+                    end
+                end
+            end
+            H.Equal(state.regions, regions)
+        end
+    end
+end)
+
+Test("relative border contracts, minimum sizes and switching layout modes", function()
+    local state = H.New()
+    local Pixel = state:Load().Pixel
+    local bounds = state:Region(0, 0, 100, 100, 0.64)
+    local metrics = Pixel.UpdateMetrics({}, bounds)
+    local border = Pixel.CreateBorder(bounds, bounds)
+    for _, thickness in ipairs({ -1, 0.5, "1", false }) do
+        H.Fails(function() border:LayoutRelative(metrics, thickness) end)
+    end
+    for _, outset in ipairs({ -1, "1", false }) do
+        H.Fails(function() border:LayoutRelative(metrics, 1, outset) end)
+    end
+    border:LayoutRelative(metrics, 0)
+    for _, edge in ipairs(border.edges) do H.Equal(edge:IsShown(), false) end
+    bounds.width = metrics.unit
+    border:LayoutRelative(metrics, 1)
+    for _, edge in ipairs(border.edges) do H.Equal(edge:IsShown(), false) end
+    bounds.width, bounds.height = 2 * metrics.unit, 2 * metrics.unit
+    border:LayoutRelative(metrics, 1)
+    for index, edge in ipairs(border.edges) do H.Equal(edge:IsShown(), index <= 2) end
+    bounds.width, bounds.height = 18 * metrics.unit, 53 * metrics.unit
+    border:LayoutRelative(metrics, 2)
+    border:Layout(metrics, 1)
+    for _, edge in ipairs(border.edges) do H.Aligned(edge, state.height) end
+    border:LayoutRelative(metrics, 2)
+    border:SetColor(1, 0.5, 0, 0.7)
+    for _, edge in ipairs(border.edges) do
+        H.Equal(edge:IsShown(), true)
+        H.Equal(edge.color[4], 0.7)
+        H.Aligned(edge, state.height)
+    end
+    border:Hide()
+    for _, edge in ipairs(border.edges) do H.Equal(edge:IsShown(), false) end
+end)
+
 Test("clipping keeps strokes out of the scrollbar gutter and hides offscreen lines", function()
     local state = H.New()
     local lib = state:Load()
@@ -443,6 +524,8 @@ Test("mixed/equal MINOR embeds preserve contexts, handles, prototypes, and singl
         if math.max(order[1], order[2]) == 2 then H.Equal(lib.Pixel.LayoutLine, pixelMethod) end
         context:RefreshGeometry()
         border:Layout(lib.Pixel.UpdateMetrics({}, root), 2)
+        border:LayoutRelative(lib.Pixel.UpdateMetrics({}, root), 2)
+        H.Equal(border.edges[1]:IsShown(), true)
         H.Aligned(texture, state.height)
         H.Equal(state.regions, count)
     end

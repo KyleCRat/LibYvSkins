@@ -539,8 +539,18 @@ selects the cached layout without replacing the separator or its visibility stat
   the bounds in non-negative UI units before snapping; it defaults to zero.
   Border handles are low-level
   primitives: their consumer is responsible for refreshing layout/metrics.
+- `border:LayoutRelative(metrics, physicalPixels, optionalOutset)` attaches the
+  same strokes directly to caller-aligned bounds, without rounding screen edges
+  again. Use this when the consumer already owns whole-pixel size and placement.
+  Movement and resizing follow anchors without position-dependent corrections;
+  refresh after changing scale or crossing the minimum drawable size (twice the
+  thickness). Thickness is a non-negative integer number of physical pixels;
+  outset is non-negative UI units and defaults to zero. Zero thickness and too-small
+  bounds hide all edges. Horizontal strokes own the corners. This mode does not
+  clip or align fractional ancestors; use `Layout` for those cases. Both methods
+  reuse the same edge textures and may be alternated on one handle.
 
-Drawing rounds absolute screen edges inward to whole pixels, compensating for
+Absolute drawing rounds screen edges inward to whole pixels, compensating for
 fractional window or scroll origins without moving the original frame. Clips
 also round inward; partially visible strokes never bleed into adjacent areas.
 Texture texel snapping/bias is disabled because these bounds are already aligned.

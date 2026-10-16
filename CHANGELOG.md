@@ -3,6 +3,10 @@
 ## Unreleased
 
 ### Added
+- Added `border:LayoutRelative` for consumers that already align their frames
+  to physical pixels. Strokes follow movement and resizing without a second
+  screen-edge rounding pass or stale position offsets; existing clipped border
+  drawing keeps its inward-snapping behavior.
 - Added opt-in `tabStyle = "header"` to `CreateTab`, with adjustable width and
   height, proportional corners, centered labels and pixel-aligned artwork.
   Compact tabs keep their artwork within their bounds; the default height is

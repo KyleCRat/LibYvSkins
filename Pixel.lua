@@ -180,10 +180,51 @@ function Border:Hide()
     end
 end
 
-function Border:Layout(metrics, thickness, clip, outset)
+local function ValidateBorder(thickness, outset)
     assert(type(thickness) == "number" and thickness >= 0 and thickness == floor(thickness),
         "border thickness must be a non-negative integer number of physical pixels")
     assert(outset == nil or (type(outset) == "number" and outset >= 0), "border outset must be non-negative")
+end
+
+local function AnchorEdge(texture, bounds, first, second, x1, y1, x2, y2, size, horizontal)
+    texture:ClearAllPoints()
+    texture:SetPoint(first, bounds, first, x1, y1)
+    texture:SetPoint(second, bounds, second, x2, y2)
+    if horizontal then texture:SetHeight(size) else texture:SetWidth(size) end
+    texture:Show()
+end
+
+function Border:LayoutRelative(metrics, thickness, outset)
+    ValidateBorder(thickness, outset)
+    outset = outset or 0
+    local unit = metrics.unit
+    local width, height = self.bounds:GetSize()
+    local pixelWidth = width and floor((width + outset * 2) / unit + 0.5)
+    local pixelHeight = height and floor((height + outset * 2) / unit + 0.5)
+    if not pixelWidth or not pixelHeight or thickness == 0
+        or pixelWidth < thickness * 2 or pixelHeight < thickness * 2 then
+        self:Hide()
+        return
+    end
+
+    -- The caller owns pixel alignment. Relative edges follow movement/size
+    -- changes without re-snapping native float readback or retaining offsets
+    -- measured before final placement. Horizontal strokes own the corners.
+    local size = thickness * unit
+    local inset = size - outset
+    AnchorEdge(self.edges[1], self.bounds, "TOPLEFT", "TOPRIGHT", -outset, outset, outset, outset, size, true)
+    AnchorEdge(self.edges[2], self.bounds, "BOTTOMLEFT", "BOTTOMRIGHT", -outset, -outset, outset, -outset, size, true)
+    if pixelHeight == thickness * 2 then
+        self.edges[3]:Hide()
+        self.edges[4]:Hide()
+    else
+        AnchorEdge(self.edges[3], self.bounds, "TOPLEFT", "BOTTOMLEFT", -outset, -inset, -outset, inset, size, false)
+        AnchorEdge(self.edges[4], self.bounds, "TOPRIGHT", "BOTTOMRIGHT", outset, -inset, outset, inset, size, false)
+    end
+end
+
+function Border:Layout(metrics, thickness, clip, outset)
+    ValidateBorder(thickness, outset)
     outset = outset or 0
     local left, bottom, right, top, originX, originY = InnerRect(self.bounds, metrics, -outset, -outset, -outset, -outset)
     if not left or thickness == 0 or right - left < thickness * 2 or top - bottom < thickness * 2 then
