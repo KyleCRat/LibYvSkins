@@ -1855,7 +1855,7 @@ Test("two windows round-trip compact chrome without replacing controls or changi
             H.Equal(data.frame.TitleContainer:IsShown(), true)
             H.Equal(data.frame.PortraitContainer:GetAlpha(), 1)
             H.Equal(data.frame.body:GetHeight(), data.height)
-            H.Equal(data.frame.CloseButton:GetWidth(), 32)
+            H.Equal(data.frame.CloseButton:GetWidth(), 24)
             H.Equal(data.tab.parts.normal:GetAlpha(), 1)
             H.Equal(data.tab.parts.normal:GetAtlas(), "common-button-tertiary-selected")
             H.Equal(data.search:HasFocus(), true)
@@ -2652,6 +2652,136 @@ Test("window sections are optional and explicit layouts preserve structure acros
         H.Fails(function() context:CreateWindow(parent, { minWidth = 300, minHeight = 200, layout = invalid }) end)
     end
     H.Equal(#state.frames, count)
+end)
+
+Test("Modern window chrome stays at the border with padded content and nested windows", function()
+    local state = H.New()
+    local context = state:Load():CreateContext("Chrome")
+    local parent = state:Region(0, 0, 1200, 900, 1)
+    for _, padding in ipairs({ 0, 8, 12, 24 }) do
+        local window = context:CreateWindow(parent, {
+            title = "Choose icon", minWidth = 520, minHeight = 540,
+            layout = {
+                padding = padding, header = { height = 150, gap = 8 },
+                titleBar = { height = 24 }, footer = { height = 34, gap = 12 },
+            },
+        })
+        window:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 30, 40)
+        window:Show()
+        for _, scale in ipairs({ 0.75, 1, 1.5 }) do
+            window:SetScale(scale)
+            window:SetSize(600, 560)
+            local left, bottom, width, height = window:GetRect()
+            local titleLeft, titleBottom, titleWidth, titleHeight = window.titleBar:GetRect()
+            H.Near(titleLeft, left)
+            H.Near(titleWidth, width)
+            H.Near(titleBottom + titleHeight, bottom + height)
+            local _, textBottom, _, textHeight = window.TitleContainer:GetRect()
+            H.Near(textBottom + textHeight, bottom + height - 1)
+            local closeLeft, closeBottom, closeWidth, closeHeight = window.CloseButton:GetRect()
+            H.Near(closeLeft + closeWidth, left + width + 1)
+            H.Near(closeBottom + closeHeight, bottom + height)
+            H.Equal(closeWidth, 24)
+            H.Equal(window.TitleContainer:GetFrameLevel() > window.NineSlice:GetFrameLevel(), true)
+            H.Equal(window.CloseButton:GetFrameLevel() > window.NineSlice:GetFrameLevel(), true)
+            H.Near(window.Bg:GetRect(), left + 7)
+            H.Near(window.header:GetRect(), left + padding, "content keeps its own padding")
+        end
+        parent = window
+    end
+end)
+
+Test("window chrome retains explicit margins, portrait insets and manual Close placement", function()
+    local state = H.New()
+    local context = state:Load():CreateContext("ChromeLayouts")
+    local parent = state:Region(0, 0, 1200, 900, 1)
+    local layout = {
+        padding = { left = 9, right = 6, top = 0, bottom = 4 },
+        header = { height = 70, gap = 4, margin = { left = 3, top = 5, right = 2 } },
+        titleBar = { height = 24 },
+    }
+    local window = context:CreateWindow(parent, { minWidth = 520, minHeight = 540, layout = layout })
+    window:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 30, 40)
+    window:Show()
+    local left, bottom, width, height = window:GetRect()
+    H.Near(window.titleBar:GetRect(), left)
+    local _, titleBottom, _, titleHeight = window.titleBar:GetRect()
+    H.Near(titleBottom + titleHeight, bottom + height)
+
+    layout.header.margin = nil
+    layout.titleBar.margin = { left = -9, right = -6 }
+    layout.portrait = true
+    context:SetWindowLayout(window, layout)
+    H.Near(window.titleBar:GetRect(), left, "existing full-bleed layouts keep their position")
+    H.Equal(window.titleBar:GetWidth(), width)
+    H.Near(window.Bg:GetRect(), left + 2)
+    H.Near(window.TitleContainer:GetRect(), left + 58)
+    H.Equal(window.PortraitContainer:IsShown(), true)
+
+    layout.titleBar.margin = { left = 10, top = 3, right = 12 }
+    layout.portrait = false
+    layout.closeButton = "manual"
+    window.CloseButton:ClearAllPoints()
+    window.CloseButton:SetSize(28, 28)
+    window.CloseButton:SetPoint("BOTTOMRIGHT", window, "BOTTOMRIGHT", -20, 20)
+    context:SetWindowLayout(window, layout)
+    local frames, regions, hooks = #state.frames, state.regions, state.hooks
+    for _, skin in ipairs({ "flat", "modern", "flat", "modern" }) do
+        context:RequestSkin(skin)
+        state:Flush()
+        H.Near(window.titleBar:GetRect(), left + 19)
+        H.Near(window.titleBar:GetWidth(), width - 37)
+        H.Equal(window.CloseButton.points.BOTTOMRIGHT[1], window)
+        H.Equal(window.CloseButton.points.BOTTOMRIGHT[3], -20)
+        H.Equal(window.CloseButton.points.BOTTOMRIGHT[4], 20)
+        H.Equal(window.CloseButton:GetWidth(), 28)
+        H.Equal(window.CloseButton:GetParent(), window)
+        H.Equal(window.TitleContainer:GetFrameLevel() > window.NineSlice:GetFrameLevel(), true)
+    end
+    H.Near(window.Bg:GetRect(), left + 7)
+    H.Equal(window.PortraitContainer:IsShown(), false)
+    H.Equal(#state.frames, frames)
+    H.Equal(state.regions, regions)
+    H.Equal(state.hooks, hooks)
+    window.CloseButton:RunScript("OnClick")
+    H.Equal(window:IsShown(), false)
+end)
+
+Test("padded window title placement follows skins without reallocating content", function()
+    for _, order in ipairs({ { 1, 2 }, { 2, 1 }, { 1, 1 } }) do
+        local state = H.New()
+        local context = state:Load(order[1]):CreateContext("ChromeUpgrade")
+        local parent = state:Region(0, 0, 1200, 900, 1)
+        local window = context:CreateWindow(parent, {
+            minWidth = 520, minHeight = 540,
+            layout = { padding = 12, header = { height = 150 }, titleBar = { height = 24 } },
+        })
+        window:SetPoint("BOTTOMLEFT", parent, "BOTTOMLEFT", 30, 40)
+        local title = window.TitleContainer
+        local bodyLeft, bodyBottom = window.Inset:GetRect()
+        local frames, regions, hooks = #state.frames, state.regions, state.hooks
+        state:Load(order[2])
+        context:RequestSkin("flat")
+        state:Flush()
+        local left, bottom, width, height = window.titleBar:GetRect()
+        H.Equal(left, 42)
+        H.Equal(bottom + height, 568)
+        H.Equal(width, 496)
+        context:RequestSkin("modern")
+        state:Flush()
+        left, bottom, width, height = window.titleBar:GetRect()
+        H.Equal(left, 30)
+        H.Equal(bottom + height, 580)
+        H.Equal(width, 520)
+        H.Equal(window.TitleContainer, title)
+        H.Equal(title:GetFrameLevel() > window.NineSlice:GetFrameLevel(), true)
+        local newBodyLeft, newBodyBottom = window.Inset:GetRect()
+        H.Equal(newBodyLeft, bodyLeft)
+        H.Equal(newBodyBottom, bodyBottom)
+        H.Equal(#state.frames, frames)
+        H.Equal(state.regions, regions)
+        H.Equal(state.hooks, hooks)
+    end
 end)
 
 Test("toolbars accept arbitrary controls, a flexible middle, and search-free rows without layout churn", function()

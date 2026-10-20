@@ -219,10 +219,23 @@ function Harness.New()
     end
     function Region:GetName() return self.name end
     function Region:GetParent() return self.parent end
-    function Region:SetParent(parent) self.parent = parent end
+    function Region:SetParent(parent)
+        self.parent = parent
+        if self.frameType and self.frameType ~= "FontString" then
+            self:SetFrameLevel(parent:GetFrameLevel() + 1)
+        end
+    end
     function Region:GetObjectType() return self.frameType or "Texture" end
     function Region:SetFrameStrata(value) self.strata = value end
-    function Region:SetFrameLevel(value) self.frameLevel = value end
+    function Region:SetFrameLevel(value)
+        local change = value - self:GetFrameLevel()
+        self.frameLevel = value
+        for _, child in ipairs(state.frames) do
+            if child.parent == self then
+                child:SetFrameLevel(child:GetFrameLevel() + change)
+            end
+        end
+    end
     function Region:GetFrameLevel() return self.frameLevel or 0 end
     function Region:SetToplevel(value) self.toplevel = value end
     function Region:SetClampedToScreen(value) self.clamped = value end
@@ -232,6 +245,12 @@ function Harness.New()
     function Region:SetResizeBounds(...) self.resizeBounds = { ... } end
     function Region:SetTitle(value) self.title = value end
     function Region:SetBorder(value) self.border = value end
+    function Region:SetFrameLevelsFromBaseLevel(baseLevel)
+        self.NineSlice:SetFrameLevel(baseLevel + 500)
+        self.PortraitContainer:SetFrameLevel(baseLevel + 400)
+        self.TitleContainer:SetFrameLevel(baseLevel + 510)
+        self.CloseButton:SetFrameLevel(baseLevel + 510)
+    end
     function Region:SetPortraitToAsset(value) self.portrait = value end
     function Region:SetPortraitTexCoord(...) self.portraitTexCoord = { ... } end
     function Region:RegisterForDrag(...) self.dragButtons = { ... } end
@@ -272,24 +291,35 @@ function Harness.New()
     }
     function env.CreateFrame(frameType, name, parent, template)
         local frame = setmetatable({ events = {}, scripts = {}, scriptHooks = {},
-            frameType = frameType, name = name, parent = parent, template = template }, Region)
+            frameType = frameType, name = name, parent = parent, template = template,
+            frameLevel = parent and parent:GetFrameLevel() + 1 or 0 }, Region)
         state.frames[#state.frames + 1] = frame
         if template == "ButtonFrameTemplate" then
+            -- Retail 12.1.5.70448 SharedUIPanelTemplates.xml: native chrome has
+            -- elevated levels, while Inset shares its parent's content level.
             frame.Inset = env.CreateFrame("Frame", nil, frame)
+            frame.Inset:SetFrameLevel(frame:GetFrameLevel())
             frame.Inset.Bg = frame.Inset:CreateTexture()
             frame.Inset.NineSlice = env.CreateFrame("Frame", nil, frame.Inset)
+            frame.Inset.NineSlice:SetFrameLevel(frame.Inset:GetFrameLevel())
             frame.NineSlice = env.CreateFrame("Frame", nil, frame)
+            frame.NineSlice:SetFrameLevel(500)
             frame.PortraitContainer = env.CreateFrame("Frame", nil, frame)
+            frame.PortraitContainer:SetFrameLevel(400)
             frame.TopTileStreaks = frame:CreateTexture()
             frame.Bg = frame:CreateTexture()
             frame.Bg:SetTexture("native-outer-background")
+            frame.Bg:SetPoint("TOPLEFT", frame, "TOPLEFT", 2, -21)
+            frame.Bg:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, 2)
             frame.TitleContainer = env.CreateFrame("Frame", nil, frame)
+            frame.TitleContainer:SetFrameLevel(510)
             frame.TitleContainer:SetHeight(20)
             frame.TitleContainer:SetPoint("TOPLEFT", frame, "TOPLEFT", 58, -1)
             frame.TitleContainer:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -24, -1)
             frame.CloseButton = env.CreateFrame("Button", nil, frame)
-            frame.CloseButton:SetSize(32, 32)
-            frame.CloseButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -4, -3)
+            frame.CloseButton:SetFrameLevel(510)
+            frame.CloseButton:SetSize(24, 24)
+            frame.CloseButton:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 1, 0)
             frame.CloseButton:SetScript("OnClick", function() frame:Hide() end)
             local normal = frame.CloseButton:CreateTexture()
             normal:SetAtlas("native-close", false)

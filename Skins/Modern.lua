@@ -20,6 +20,7 @@ Modern.WindowMetrics = {
     padding = { left = 4, right = 6, top = 24, bottom = 4 },
     bodyPadding = { left = 3, right = 3, top = 3, bottom = 2 },
     titleBarHeight = 24,
+    titleBarAtWindowEdge = true,
 }
 
 function Modern.WindowLayout(handle)
@@ -110,6 +111,9 @@ function Modern.Window(handle)
     local frame = handle.target
     if handle.windowPortrait ~= handle.layout.portrait then
         frame:SetBorder(handle.layout.portrait and "PortraitFrameTemplate" or "ButtonFrameTemplateNoPortrait")
+        -- Match ButtonFrameTemplate_UpdateAnchors without rewriting the
+        -- consumer's Inset or TitleContainer anchors through HidePortrait.
+        frame.Bg:SetPoint("TOPLEFT", frame, "TOPLEFT", handle.layout.portrait and 2 or 7, -21)
         handle.windowPortrait = handle.layout.portrait
     end
     for index, region in ipairs(handle.parts.chrome) do region:SetAlpha(handle.chromeAlpha[index]) end

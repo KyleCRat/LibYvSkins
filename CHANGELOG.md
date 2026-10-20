@@ -75,6 +75,10 @@
   every inactive-skin renderer method disabled.
 
 ### Fixed
+- Keep Modern window titles and Close buttons aligned with native border
+  artwork regardless of content padding. Restore native title layering after
+  reparenting and adjust the outer background when the portrait is hidden.
+  Explicit title margins and manual Close placement remain supported.
 - Removed the Flat glyph-position cache so existing layout/state refreshes
   always reapply anchors and size. Retained pixel alignment and separate
   sampling setup without adding polling. Kept alignment and skin-restoration

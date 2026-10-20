@@ -21,6 +21,12 @@ Load LibStub before `embed.xml`. Runtime files are Lua 5.1 and use Blizzard's
 Retail 12.1.0.69497; in-game validation is required before release, including
 any additional client versions advertised by a consumer.
 
+Window chrome was rechecked against Retail 12.1.5.70448 (`f54dee9`):
+`Blizzard_SharedXML/Mainline/SharedUIPanelTemplates.xml` supplies native title,
+close and border geometry; its Lua portrait helpers adjust background insets.
+`Blizzard_SharedXML/PortraitFrame.lua` supplies `SetFrameLevelsFromBaseLevel`
+to restore native chrome ordering after reparenting the title.
+
 The Git repository is unversioned (`LibYvSkins`); the embed directory follows
 the API family (`LibYvSkins-1.0`). Embed it at `Libs/LibYvSkins-1.0`, including
 its `Media` directory. Owned textures resolve from the winning embed's addon
@@ -122,13 +128,18 @@ an empty specification creates a Body-only shell with skin-default padding.
   or false. Height zero removes the section and its margins/gap. Header gap is
   below Header; Footer gap is above Footer. Neither section wraps automatically.
 - `titleBar`: false or `{ height = ..., margin = ... }`. Height defaults to the
-  skin's title measurement. Its complete height/margins must fit inside Header's
-  declared height; it does not consume a second allocation outside Header.
+  skin's title measurement. Its height and explicit vertical margins must fit
+  inside Header's declared height; it does not consume a second allocation
+  outside Header. Modern defaults its left/right/top margins to extend through
+  content padding and Header margins to the native window edge, keeping the
+  title and Close aligned with the border. Flat stays inside the padded Header.
+  Explicit margin edges override these defaults, including zero.
 - `body`: optional `padding` within the inset border and `margin` outside it.
   Body otherwise fills between the upper/lower sections. Header/Footer interiors
   remain addon-owned; the shell does not infer padding from their children.
 - Margins accept independent edges or a uniform number; negative margins allow
-  intentional full-bleed artwork. Omitted margin edges are zero.
+  intentional full-bleed artwork. Omitted margin edges are zero except for
+  Modern's Title Bar defaults above.
 - `portrait`: explicitly show the supplied native portrait; default false.
 - `closeButton`: `"titleBar"`, `"manual"`, or false. The default follows the
   declared Title Bar, not the skin. Manual placement shows the same native
@@ -589,6 +600,8 @@ clipping, borders, pooled state, window constructors/slots/lifecycle, icon-free
 accordion layout, button/tab/checkbox/search states, semantic icon colors,
 scrollbar and popup boundaries, raw control access, display coalescing,
 allocation-free refreshes, Modern/Flat round trips, symmetric compact geometry,
+native title/Close placement with padded and nested windows, chrome layering,
+portrait background insets and explicit/manual placement,
 background dragging with separate action controls, text baselines, action
 colors, outside icon borders, native checkmark sizes and stepper offsets,
 combat/drag deferral and cancellation, and old-first/new-first/equal-MINOR loading.

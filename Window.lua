@@ -47,6 +47,16 @@ local function ResolveLayout(spec, skin)
     local titleBar = Section(spec.titleBar, spec.titleBar and metrics.titleBarHeight or 0)
     assert(header.height >= titleBar.height + titleBar.margin.top + titleBar.margin.bottom,
         "Header height must include its Title Bar")
+    local padding = Edges(spec.padding, metrics.padding, true)
+    if titleBar.height > 0 and metrics.titleBarAtWindowEdge then
+        -- Native title artwork stays at the outer edge even when content has
+        -- padding. Keep the declared Header allocation and honor explicit margins.
+        titleBar.margin = Edges(spec.titleBar.margin, {
+            left = -padding.left - header.margin.left,
+            right = -padding.right - header.margin.right,
+            top = -padding.top - header.margin.top,
+        })
+    end
     local body = spec.body or {}
     assert(type(body) == "table", "Body layout must be a table")
     local close = spec.closeButton
@@ -55,7 +65,7 @@ local function ResolveLayout(spec, skin)
     assert(close ~= "titleBar" or titleBar.height > 0, "Close placement requires a Title Bar")
     assert(spec.portrait == nil or type(spec.portrait) == "boolean", "portrait visibility must be boolean")
     return {
-        padding = Edges(spec.padding, metrics.padding, true),
+        padding = padding,
         header = header, footer = footer, titleBar = titleBar,
         body = { padding = Edges(body.padding, metrics.bodyPadding, true), margin = Edges(body.margin) },
         closeButton = close, portrait = spec.portrait == true,
@@ -283,6 +293,9 @@ function Context:CreateWindow(parent, options)
     frame.body = CreateFrame("Frame", nil, frame)
     frame.footer = CreateFrame("Frame", nil, frame)
     frame.TitleContainer:SetParent(frame.titleBar)
+    -- Reparenting resets the title's level below the native NineSlice. Restore
+    -- Blizzard's chrome ordering relative to this window, including nested ones.
+    frame:SetFrameLevelsFromBaseLevel(frame:GetFrameLevel())
 
     frame.resizeButton = CreateFrame("Button", nil, frame, "PanelResizeButtonTemplate")
     frame.resizeButton:Init(frame, options.minWidth, options.minHeight, options.maxWidth, options.maxHeight)
