@@ -13,6 +13,7 @@ lib._headerTabTexture = texturePath .. "common-header-tab\\common-header-tab-atl
 lib._media = {
     close = texturePath .. "Vertex-Close.tga",
     clone = texturePath .. "Vertex-Clone.tga",
+    folder = texturePath .. "Folder.tga",
     lock = texturePath .. "Vertex-Lock.tga",
     unlock = texturePath .. "Vertex-Unlock.tga",
     visible = texturePath .. "Visible.tga",

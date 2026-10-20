@@ -312,7 +312,7 @@ context font at size 13, or the corresponding native FontObject when omitted.
 For buttons, `fontObject` takes precedence over the custom font.
 
 `LibYvSkins:GetIconTexture(name)` returns a bundled Vertex texture path for
-`close`, `clone`, `lock`, `unlock`, `visible`, `hidden`, `advanced`, `advancedDisabled`,
+`close`, `clone`, `folder`, `lock`, `unlock`, `visible`, `hidden`, `advanced`, `advancedDisabled`,
 `settings`, `gear`, `scale`, `plus`, `minus`,
 `arrowUp`, `arrowDown`, `arrowLeft`, `arrowRight`, `caretUp`, `caretDown`,
 `caretLeft`, or `caretRight`.

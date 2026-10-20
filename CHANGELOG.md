@@ -16,7 +16,8 @@
 - Added icon `artworkOutset` to enlarge artwork inside its existing Modern/Flat
   border footprint without resizing the parent control or adding regions.
 - Added bundled centered Vertex control glyphs and `GetIconTexture(name)` for
-  consumers, including clone, lock/unlock, visible/hidden, advanced on/off and dedicated arrow/caret icons.
+  consumers, including folder, clone, lock/unlock, visible/hidden, advanced on/off
+  and dedicated arrow/caret icons.
   Added button `preserveIconColor` for multicolor artwork that must retain its
   native colors.
   Command and action-icon glyphs share Modern's gold tint and Flat's accent
