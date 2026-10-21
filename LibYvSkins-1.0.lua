@@ -12,6 +12,7 @@ local texturePath = "Interface\\AddOns\\" .. addonName .. "\\" .. libraryFolder 
 lib._headerTabTexture = texturePath .. "common-header-tab\\common-header-tab-atlas.tga"
 lib._media = {
     close = texturePath .. "Vertex-Close.tga",
+    search = texturePath .. "Vertex-Search.tga",
     clone = texturePath .. "Vertex-Clone.tga",
     folder = texturePath .. "Folder.tga",
     lock = texturePath .. "Vertex-Lock.tga",

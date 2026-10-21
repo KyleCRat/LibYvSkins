@@ -2348,6 +2348,7 @@ Test("owned close media follows the winning loader and restores native Modern ar
         state:Load()
         H.Equal(lib:GetIconTexture("close"), expected, "a skipped library copy cannot replace the media root")
         for name, filename in pairs({
+            search = "Vertex-Search.tga",
             clone = "Vertex-Clone.tga",
             folder = "Folder.tga",
             caretUp = "Vertex-Caret-Up.tga",
