@@ -1,8 +1,14 @@
 local MAJOR, MINOR = "LibYvSkins-1.0", 1
 local lib = LibStub(MAJOR, true)
-if not lib or lib._implementationMinor ~= MINOR or lib._modules.ExpandableHeader == MINOR then
+
+if
+    not lib
+    or lib._implementationMinor ~= MINOR
+    or lib._modules.ExpandableHeader == MINOR
+then
     return
 end
+
 lib._modules.ExpandableHeader = MINOR
 
 local definition = lib._roles.expandableHeader or {}
@@ -21,32 +27,78 @@ local ARROW_SIZE = 17
 local ARROW_LABEL_GAP = 4
 
 local function ValidateOptions(options)
-    assert(type(options) == "table", "expandable header options must be a table")
+    assert(
+        type(options) == "table",
+        "expandable header options must be a table"
+    )
+
     for _, key in ipairs({ "width", "height", "fontSize" }) do
-        assert(options[key] == nil or (type(options[key]) == "number" and options[key] > 0),
-            "expandable header dimensions must be positive numbers")
+        assert(
+            options[key] == nil
+                or (type(options[key]) == "number" and options[key] > 0),
+            "expandable header dimensions must be positive numbers"
+        )
     end
-    assert(options.text == nil or type(options.text) == "string", "header text must be a string")
-    assert(options.font == nil or (type(options.font) == "string" and options.font ~= ""),
-        "header font must be a non-empty path")
-    assert(options.expanded == nil or type(options.expanded) == "boolean", "expanded must be a boolean")
-    assert(options.onClick == nil or type(options.onClick) == "function", "onClick must be a function")
-    assert(options.alpha == nil or (type(options.alpha) == "number" and options.alpha >= 0 and options.alpha <= 1),
-        "header alpha must be between zero and one")
+
+    assert(
+        options.text == nil or type(options.text) == "string",
+        "header text must be a string"
+    )
+    assert(
+        options.font == nil
+            or (type(options.font) == "string" and options.font ~= ""),
+        "header font must be a non-empty path"
+    )
+    assert(
+        options.expanded == nil or type(options.expanded) == "boolean",
+        "expanded must be a boolean"
+    )
+    assert(
+        options.onClick == nil or type(options.onClick) == "function",
+        "onClick must be a function"
+    )
+    assert(
+        options.alpha == nil
+            or (
+                type(options.alpha) == "number"
+                and options.alpha >= 0
+                and options.alpha <= 1
+            ),
+        "header alpha must be between zero and one"
+    )
 end
 
 function definition.Validate(header, parts, options)
     ValidateOptions(options)
-    assert(header and type(header.SetNormalTexture) == "function", "expandable header must be a Button")
-    assert(type(parts) == "table" and parts.bounds and type(parts.bounds.GetEffectiveScale) == "function",
-        "expandable header requires parts.bounds")
+    assert(
+        header and type(header.SetNormalTexture) == "function",
+        "expandable header must be a Button"
+    )
+    assert(
+        type(parts) == "table"
+            and parts.bounds
+            and type(parts.bounds.GetEffectiveScale) == "function",
+        "expandable header requires parts.bounds"
+    )
     local root = options.geometryRoot or parts.bounds
-    assert(type(root.GetEffectiveScale) == "function", "geometryRoot must be a region")
-    assert(header:GetEffectiveScale() == root:GetEffectiveScale()
-        and parts.bounds:GetEffectiveScale() == root:GetEffectiveScale(),
-        "expandable header, bounds, and geometryRoot must share an effective scale")
-    assert(options.clip == nil or (type(options.clip.GetRect) == "function"
-        and options.clip:GetEffectiveScale() == root:GetEffectiveScale()), "clip must share the header scale")
+    assert(
+        type(root.GetEffectiveScale) == "function",
+        "geometryRoot must be a region"
+    )
+    assert(
+        header:GetEffectiveScale() == root:GetEffectiveScale()
+            and parts.bounds:GetEffectiveScale() == root:GetEffectiveScale(),
+        "expandable header, bounds, and geometryRoot must share an effective scale"
+    )
+    assert(
+        options.clip == nil
+            or (
+                type(options.clip.GetRect) == "function"
+                and options.clip:GetEffectiveScale()
+                    == root:GetEffectiveScale()
+            ),
+        "clip must share the header scale"
+    )
 end
 
 local function CreateStateTexture(header)
@@ -77,11 +129,13 @@ function definition.Initialize(handle, options)
     local label = header:CreateFontString(nil, "OVERLAY")
     parts.label = label
     header:SetFontString(label)
+
     if options.font then
         label:SetFont(options.font, options.fontSize or DEFAULT_FONT_SIZE)
     else
         label:SetFontObject(GameFontNormalLarge)
     end
+
     label:SetJustifyH("LEFT")
     label:SetJustifyV("MIDDLE")
     label:SetWordWrap(false)
@@ -123,7 +177,12 @@ end
 
 function definition.ApplyAppearance(handle)
     local r, g, b, a = handle.context:GetColor(handle.colorToken)
-    handle.parts.label:SetTextColor(r, g, b, handle.target:IsEnabled() and a or a * 0.5)
+    handle.parts.label:SetTextColor(
+        r,
+        g,
+        b,
+        handle.target:IsEnabled() and a or a * 0.5
+    )
     handle.target:SetAlpha(handle.alpha)
     handle.context:_GetRenderer().ExpandableHeader(handle)
 end
@@ -151,25 +210,40 @@ function HeaderHandle:RefreshGeometry()
 end
 
 function lib._contextPrototype:CreateExpandableHeader(parent, options)
-    if options == nil then
-        options = {}
-    end
+    if options == nil then options = {} end
+
     ValidateOptions(options)
-    assert(parent and type(parent.CreateTexture) == "function", "header parent must be a frame")
+    assert(
+        parent and type(parent.CreateTexture) == "function",
+        "header parent must be a frame"
+    )
     local bounds = options.bounds or parent
     local root = options.geometryRoot or bounds
-    assert(type(bounds.GetEffectiveScale) == "function" and type(root.GetEffectiveScale) == "function",
-        "header bounds and geometryRoot must be regions")
-    assert(parent:GetEffectiveScale() == bounds:GetEffectiveScale()
-        and parent:GetEffectiveScale() == root:GetEffectiveScale(),
-        "header parent, bounds, and geometryRoot must share an effective scale")
+    assert(
+        type(bounds.GetEffectiveScale) == "function"
+            and type(root.GetEffectiveScale) == "function",
+        "header bounds and geometryRoot must be regions"
+    )
+    assert(
+        parent:GetEffectiveScale() == bounds:GetEffectiveScale()
+            and parent:GetEffectiveScale() == root:GetEffectiveScale(),
+        "header parent, bounds, and geometryRoot must share an effective scale"
+    )
     self:GetColor(options.colorToken or "accent")
 
     local header = CreateFrame("Button", nil, parent)
-    header:SetSize(options.width or DEFAULT_WIDTH, options.height or DEFAULT_HEIGHT)
+    header:SetSize(
+        options.width or DEFAULT_WIDTH,
+        options.height or DEFAULT_HEIGHT
+    )
     header:EnableMouse(true)
     header:RegisterForClicks("LeftButtonUp")
-    local handle = self:RegisterComponent("expandableHeader", header, { bounds = bounds }, options)
+    local handle = self:RegisterComponent(
+        "expandableHeader",
+        header,
+        { bounds = bounds },
+        options
+    )
     header:SetText(options.text or "")
     header:SetScript("OnClick", options.onClick)
     return header, handle

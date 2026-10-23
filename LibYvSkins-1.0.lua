@@ -1,15 +1,19 @@
 local addonName = ...
 local MAJOR, MINOR = "LibYvSkins-1.0", 1
 local lib = LibStub:NewLibrary(MAJOR, MINOR)
-if not lib then
-    return
-end
+
+if not lib then return end
 
 -- Owned media follows the canonical embed folder, without stack-path inference
 -- (WoW truncates long source paths). Standalone packages use the library root.
 local libraryFolder = addonName == MAJOR and "" or "Libs\\" .. MAJOR .. "\\"
-local texturePath = "Interface\\AddOns\\" .. addonName .. "\\" .. libraryFolder .. "Media\\Textures\\"
-lib._headerTabTexture = texturePath .. "common-header-tab\\common-header-tab-atlas.tga"
+local texturePath = "Interface\\AddOns\\"
+    .. addonName
+    .. "\\"
+    .. libraryFolder
+    .. "Media\\Textures\\"
+lib._headerTabTexture = texturePath
+    .. "common-header-tab\\common-header-tab-atlas.tga"
 lib._media = {
     close = texturePath .. "Vertex-Close.tga",
     search = texturePath .. "Vertex-Search.tga",

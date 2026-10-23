@@ -1,0 +1,34 @@
+# Only globals used by this repository; review additions against the WoW API.
+# Names are checked here; API member signatures and secret-value contracts are not.
+base: lua51
+globals:
+    # Lua 5.1 permits assertions without a message; tests report source locations.
+    assert:
+        args:
+            - type: any
+            - type: string
+              required: false
+    C_Timer:
+        any: true
+    CreateFrame:
+        any: true
+    GameFontHighlight:
+        any: true
+    GameFontNormal:
+        any: true
+    GameFontNormalLarge:
+        any: true
+    InCombatLockdown:
+        any: true
+    LibStub:
+        any: true
+    MinimalScrollBarStepperScriptsMixin:
+        any: true
+    MinimalScrollBarThumbScriptsMixin:
+        any: true
+    PixelUtil:
+        any: true
+    strmatch:
+        any: true
+    UIParent:
+        any: true

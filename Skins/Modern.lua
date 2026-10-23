@@ -1,24 +1,43 @@
 local MAJOR, MINOR = "LibYvSkins-1.0", 1
 local lib = LibStub(MAJOR, true)
-if not lib or lib._implementationMinor ~= MINOR or lib._modules.Modern == MINOR then
+
+if
+    not lib
+    or lib._implementationMinor ~= MINOR
+    or lib._modules.Modern == MINOR
+then
     return
 end
+
 lib._modules.Modern = MINOR
 
 local Modern = lib._skins.modern or {}
 lib._skins.modern = Modern
 local GOLD_R, GOLD_G, GOLD_B = 1, 0.82, 0
 -- Match the border and inset accent in common-sidetab.
-local HEADER_TAB_BORDER_R, HEADER_TAB_BORDER_G, HEADER_TAB_BORDER_B = 162 / 255, 161 / 255, 158 / 255
-local HEADER_TAB_ACCENT_R, HEADER_TAB_ACCENT_G, HEADER_TAB_ACCENT_B = 53 / 255, 47 / 255, 44 / 255
+local HEADER_TAB_BORDER_R, HEADER_TAB_BORDER_G, HEADER_TAB_BORDER_B =
+    162 / 255, 161 / 255, 158 / 255
+local HEADER_TAB_ACCENT_R, HEADER_TAB_ACCENT_G, HEADER_TAB_ACCENT_B =
+    53 / 255, 47 / 255, 44 / 255
 -- Match the pale gold in common-button-tertiary-depressed-normal-glow.
-local HEADER_TAB_GLOW_R, HEADER_TAB_GLOW_G, HEADER_TAB_GLOW_B = 243 / 255, 221 / 255, 131 / 255
+local HEADER_TAB_GLOW_R, HEADER_TAB_GLOW_G, HEADER_TAB_GLOW_B =
+    243 / 255, 221 / 255, 131 / 255
 local HEADER_TAB_TEXT_OFFSET_Y = -3
 local SQUARE_ICON_OFFSET_PIXELS = 1
 
 Modern.WindowMetrics = {
-    padding = { left = 4, right = 6, top = 24, bottom = 4 },
-    bodyPadding = { left = 3, right = 3, top = 3, bottom = 2 },
+    padding = {
+        left = 4,
+        right = 6,
+        top = 24,
+        bottom = 4,
+    },
+    bodyPadding = {
+        left = 3,
+        right = 3,
+        top = 3,
+        bottom = 2,
+    },
     titleBarHeight = 24,
     titleBarAtWindowEdge = true,
 }
@@ -27,19 +46,43 @@ function Modern.WindowLayout(handle)
     local frame = handle.target
     frame.TitleContainer:ClearAllPoints()
     frame.TitleContainer:SetHeight(handle.titleHeight)
+
     for _, point in ipairs(handle.titlePoints) do
         local x = point[4]
+
         if point[1] == "TOPLEFT" and not handle.layout.portrait then x = 0 end
-        if point[1] == "TOPRIGHT" and handle.layout.closeButton ~= "titleBar" then x = 0 end
-        frame.TitleContainer:SetPoint(point[1], frame.titleBar, point[3], x, point[5])
+
+        if
+            point[1] == "TOPRIGHT"
+            and handle.layout.closeButton ~= "titleBar"
+        then
+            x = 0
+        end
+
+        frame.TitleContainer:SetPoint(
+            point[1],
+            frame.titleBar,
+            point[3],
+            x,
+            point[5]
+        )
     end
+
     if handle.layout.closeButton == "titleBar" then
         frame.CloseButton:ClearAllPoints()
         frame.CloseButton:SetSize(handle.closeWidth, handle.closeHeight)
+
         for _, point in ipairs(handle.closePoints) do
-            frame.CloseButton:SetPoint(point[1], frame.titleBar, point[3], point[4], point[5])
+            frame.CloseButton:SetPoint(
+                point[1],
+                frame.titleBar,
+                point[3],
+                point[4],
+                point[5]
+            )
         end
     end
+
     frame.resizeButton:ClearAllPoints()
     frame.resizeButton:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -2, 3)
 end
@@ -53,7 +96,8 @@ local function SetActionIconColor(icon, enabled)
 end
 
 function Modern.PopupSlider(handle)
-    local popup, parts, baseline = handle.target, handle.parts.visuals, handle.baseline
+    local popup, parts, baseline =
+        handle.target, handle.parts.visuals, handle.baseline
     popup:SetBackdrop(baseline.backdrop)
     local color = baseline.backgroundColor
     popup:SetBackdropColor(color.r, color.g, color.b, color.a)
@@ -61,7 +105,11 @@ function Modern.PopupSlider(handle)
     color = baseline.trackColor
     parts.track:SetColorTexture(color.r, color.g, color.b, color.a)
     color = baseline.markerColor
-    for _, marker in ipairs(parts.markers) do marker:SetColorTexture(color.r, color.g, color.b, color.a) end
+
+    for _, marker in ipairs(parts.markers) do
+        marker:SetColorTexture(color.r, color.g, color.b, color.a)
+    end
+
     color = baseline.thumbColor
     parts.thumb:SetAtlas("Minimal_SliderBar_Button", false)
     parts.thumb:SetVertexColor(color.r, color.g, color.b, color.a)
@@ -74,10 +122,17 @@ end
 function Modern.NativeButton(handle)
     Modern.NativeButtonLayout(handle)
     handle.parts.icon:Hide()
+
     for _, state in ipairs(handle.parts.states) do
         local texture = state.region
         handle.target[state.setter](handle.target, texture)
-        if state.atlas then texture:SetAtlas(state.atlas, false) else texture:SetTexture(state.texture) end
+
+        if state.atlas then
+            texture:SetAtlas(state.atlas, false)
+        else
+            texture:SetTexture(state.texture)
+        end
+
         texture:SetTexCoord(unpack(state.coordinates))
         texture:SetVertexColor(unpack(state.color))
         texture:SetAlpha(state.alpha)
@@ -98,25 +153,53 @@ function Modern.ExpandableHeader(handle)
     parts.disabled:SetAlpha(1)
     parts.arrow:SetDesaturated(false)
     parts.arrow:SetVertexColor(1, 1, 1, 1)
-    parts.normal:SetAtlas(enabled and handle.hovered and "common-button-tertiary-hover" or "common-button-tertiary-normal", false)
+    parts.normal:SetAtlas(
+        enabled and handle.hovered and "common-button-tertiary-hover"
+            or "common-button-tertiary-normal",
+        false
+    )
     parts.pressed:SetAtlas("common-button-tertiary-pressed", false)
     parts.disabled:SetAtlas("common-button-tertiary-disabled", false)
-    parts.arrow:SetAtlas(enabled and "common-dropdown-icon-next" or "common-dropdown-icon-next-disabled", false)
+    parts.arrow:SetAtlas(
+        enabled and "common-dropdown-icon-next"
+            or "common-dropdown-icon-next-disabled",
+        false
+    )
     parts.arrow:SetRotation(handle.expanded and math.pi * 1.5 or math.pi * 0.5)
     parts.arrow:ClearAllPoints()
-    parts.arrow:SetPoint("RIGHT", header, "RIGHT", -12, handle.expanded and 2 or -1)
+    parts.arrow:SetPoint(
+        "RIGHT",
+        header,
+        "RIGHT",
+        -12,
+        handle.expanded and 2 or -1
+    )
 end
 
 function Modern.Window(handle)
     local frame = handle.target
+
     if handle.windowPortrait ~= handle.layout.portrait then
-        frame:SetBorder(handle.layout.portrait and "PortraitFrameTemplate" or "ButtonFrameTemplateNoPortrait")
+        frame:SetBorder(
+            handle.layout.portrait and "PortraitFrameTemplate"
+                or "ButtonFrameTemplateNoPortrait"
+        )
         -- Match ButtonFrameTemplate_UpdateAnchors without rewriting the
         -- consumer's Inset or TitleContainer anchors through HidePortrait.
-        frame.Bg:SetPoint("TOPLEFT", frame, "TOPLEFT", handle.layout.portrait and 2 or 7, -21)
+        frame.Bg:SetPoint(
+            "TOPLEFT",
+            frame,
+            "TOPLEFT",
+            handle.layout.portrait and 2 or 7,
+            -21
+        )
         handle.windowPortrait = handle.layout.portrait
     end
-    for index, region in ipairs(handle.parts.chrome) do region:SetAlpha(handle.chromeAlpha[index]) end
+
+    for index, region in ipairs(handle.parts.chrome) do
+        region:SetAlpha(handle.chromeAlpha[index])
+    end
+
     frame.TopTileStreaks:Hide()
     frame.TopTileStreaks:SetAlpha(0)
     frame.Inset.Bg:SetTexture(handle.insetBackground, "REPEAT", "REPEAT")
@@ -126,67 +209,108 @@ end
 
 function Modern.ScrollBar(handle)
     local parts = handle.parts
+
     if handle.layoutSkin ~= "modern" then
         local restoreTrack = handle.layoutSkin ~= nil
         handle.layoutSkin = "modern"
         handle:LayoutAnchor(false)
+
         if restoreTrack then
             parts.track:ClearAllPoints()
-            for _, point in ipairs(handle.trackPoints) do parts.track:SetPoint(unpack(point)) end
+
+            for _, point in ipairs(handle.trackPoints) do
+                parts.track:SetPoint(unpack(point))
+            end
         end
     end
-    for _, region in ipairs({ parts.track.Begin, parts.track.Middle, parts.track.End,
-        parts.thumb.Begin, parts.thumb.Middle, parts.thumb.End }) do region:SetAlpha(1) end
+
+    for _, region in ipairs({
+        parts.track.Begin,
+        parts.track.Middle,
+        parts.track.End,
+        parts.thumb.Begin,
+        parts.thumb.Middle,
+        parts.thumb.End,
+    }) do
+        region:SetAlpha(1)
+    end
+
     for _, button in ipairs({ parts.back, parts.forward }) do
         button.Texture:SetRotation(0)
         button.Texture:SetVertexColor(1, 1, 1, 1)
         button.Texture:SetDesaturated(not button:IsEnabled())
-        if handle.stepperLayoutSkin and handle.stepperLayoutSkin ~= "modern" then
+
+        if
+            handle.stepperLayoutSkin
+            and handle.stepperLayoutSkin ~= "modern"
+        then
             button.Texture:ClearAllPoints()
-            for _, point in ipairs(handle.stepperPoints[button]) do button.Texture:SetPoint(unpack(point)) end
+
+            for _, point in ipairs(handle.stepperPoints[button]) do
+                button.Texture:SetPoint(unpack(point))
+            end
         end
     end
+
     handle.stepperLayoutSkin = "modern"
     parts.track.Begin:SetAtlas("minimal-scrollbar-track-top", true)
     parts.track.Middle:SetAtlas("!minimal-scrollbar-track-middle", true)
     parts.track.End:SetAtlas("minimal-scrollbar-track-bottom", true)
     MinimalScrollBarThumbScriptsMixin.OnButtonStateChanged(parts.thumb)
-    MinimalScrollBarThumbScriptsMixin.OnSizeChanged(parts.thumb, parts.thumb:GetSize())
+    MinimalScrollBarThumbScriptsMixin.OnSizeChanged(
+        parts.thumb,
+        parts.thumb:GetSize()
+    )
     MinimalScrollBarStepperScriptsMixin.OnButtonStateChanged(parts.back)
     MinimalScrollBarStepperScriptsMixin.OnButtonStateChanged(parts.forward)
 end
 
 function Modern.ScrollThumbSize(handle, width, height)
-    MinimalScrollBarThumbScriptsMixin.OnSizeChanged(handle.parts.thumb, width, height)
+    MinimalScrollBarThumbScriptsMixin.OnSizeChanged(
+        handle.parts.thumb,
+        width,
+        height
+    )
 end
 
 local BUTTON_ATLASES = {
     command = {
-        normal = "common-button-tertiary-normal", hover = "common-button-tertiary-hover",
-        pressed = "common-button-tertiary-pressed", disabled = "common-button-tertiary-disabled",
-        selected = "common-button-tertiary-selected", selectedOutset = 3,
+        normal = "common-button-tertiary-normal",
+        hover = "common-button-tertiary-hover",
+        pressed = "common-button-tertiary-pressed",
+        disabled = "common-button-tertiary-disabled",
+        selected = "common-button-tertiary-selected",
+        selectedOutset = 3,
     },
     square = {
-        normal = "common-button-tertiary-square-normal", hover = "common-button-tertiary-square-hover",
-        pressed = "common-button-tertiary-square-pressed", disabled = "common-button-tertiary-square-disabled",
-        selected = "common-button-tertiary-square-selected", selectedOutset = 0,
+        normal = "common-button-tertiary-square-normal",
+        hover = "common-button-tertiary-square-hover",
+        pressed = "common-button-tertiary-square-pressed",
+        disabled = "common-button-tertiary-square-disabled",
+        selected = "common-button-tertiary-square-selected",
+        selectedOutset = 0,
     },
 }
 
 function Modern.Button(handle)
     local button, parts = handle.target, handle.parts
     parts.label:ClearAllPoints()
+
     if parts.headerTab then
         handle:RefreshState()
         return
     end
+
     local atlases = BUTTON_ATLASES[handle.variant]
     local selected = handle.selected
     parts.normal:SetAlpha(1)
     parts.hover:SetAlpha(1)
     parts.pressed:SetAlpha(1)
     parts.disabled:SetAlpha(1)
-    parts.normal:SetAtlas(selected and atlases.selected or atlases.normal, false)
+    parts.normal:SetAtlas(
+        selected and atlases.selected or atlases.normal,
+        false
+    )
     parts.hover:SetAtlas(atlases.hover, false)
     parts.pressed:SetAtlas(atlases.pressed, false)
     parts.disabled:SetAtlas(atlases.disabled, false)
@@ -194,16 +318,26 @@ function Modern.Button(handle)
     parts.normal:ClearAllPoints()
     parts.normal:SetPoint("TOPLEFT", button, "TOPLEFT", -outset, outset)
     parts.normal:SetPoint("BOTTOMRIGHT", button, "BOTTOMRIGHT", outset, -outset)
+
     if parts.checked then
         parts.disabledChecked:SetDesaturated(true)
         parts.disabledChecked:SetVertexColor(0.5, 0.5, 0.5)
         parts.checked:SetDesaturated(false)
         parts.checked:SetVertexColor(1, 1, 1, 1)
     end
+
     handle:RefreshState()
 end
 
-local function PaintHeaderTabLayer(slices, geometryVisible, shown, r, g, b, alpha)
+local function PaintHeaderTabLayer(
+    slices,
+    geometryVisible,
+    shown,
+    r,
+    g,
+    b,
+    alpha
+)
     for index, texture in ipairs(slices) do
         texture:SetVertexColor(r, g, b, alpha)
         texture:SetShown(shown and geometryVisible[index] == true)
@@ -215,30 +349,76 @@ function Modern.ButtonState(handle)
     local enabled, selected = button:IsEnabled(), handle.selected
     local pressed = enabled and not selected and handle.pressed
     -- The header's inset border places its visual center below the frame center.
-    local labelY = handle.labelOffsetY + (parts.headerTab and HEADER_TAB_TEXT_OFFSET_Y or 0)
-    parts.label:SetPoint("CENTER", button, "CENTER",
+    local labelY = handle.labelOffsetY
+        + (parts.headerTab and HEADER_TAB_TEXT_OFFSET_Y or 0)
+    parts.label:SetPoint(
+        "CENTER",
+        button,
+        "CENTER",
         pressed and handle.pushedTextOffsetX or 0,
-        labelY + (pressed and handle.pushedTextOffsetY or 0))
+        labelY + (pressed and handle.pushedTextOffsetY or 0)
+    )
+
     if parts.headerTab then
         local layers = parts.headerTab
         local geometryVisible = handle.headerTabVisible
         local opacity = enabled and 1 or 0.4
         local background = selected and 0.10 or (pressed and 0.035 or 0.06)
-        PaintHeaderTabLayer(layers.background, geometryVisible, true, background, background, background, 0.95)
-        PaintHeaderTabLayer(layers.backgroundAccent, geometryVisible, true,
-            HEADER_TAB_ACCENT_R, HEADER_TAB_ACCENT_G, HEADER_TAB_ACCENT_B, opacity)
-        PaintHeaderTabLayer(layers.normal, geometryVisible, true,
-            HEADER_TAB_BORDER_R, HEADER_TAB_BORDER_G, HEADER_TAB_BORDER_B, opacity)
-        PaintHeaderTabLayer(layers.hover, geometryVisible, enabled and not selected and (handle.hovered or pressed),
-            HEADER_TAB_GLOW_R, HEADER_TAB_GLOW_G, HEADER_TAB_GLOW_B, opacity)
-        PaintHeaderTabLayer(layers.selected, geometryVisible, selected,
-            HEADER_TAB_GLOW_R, HEADER_TAB_GLOW_G, HEADER_TAB_GLOW_B, opacity)
+        PaintHeaderTabLayer(
+            layers.background,
+            geometryVisible,
+            true,
+            background,
+            background,
+            background,
+            0.95
+        )
+        PaintHeaderTabLayer(
+            layers.backgroundAccent,
+            geometryVisible,
+            true,
+            HEADER_TAB_ACCENT_R,
+            HEADER_TAB_ACCENT_G,
+            HEADER_TAB_ACCENT_B,
+            opacity
+        )
+        PaintHeaderTabLayer(
+            layers.normal,
+            geometryVisible,
+            true,
+            HEADER_TAB_BORDER_R,
+            HEADER_TAB_BORDER_G,
+            HEADER_TAB_BORDER_B,
+            opacity
+        )
+        PaintHeaderTabLayer(
+            layers.hover,
+            geometryVisible,
+            enabled and not selected and (handle.hovered or pressed),
+            HEADER_TAB_GLOW_R,
+            HEADER_TAB_GLOW_G,
+            HEADER_TAB_GLOW_B,
+            opacity
+        )
+        PaintHeaderTabLayer(
+            layers.selected,
+            geometryVisible,
+            selected,
+            HEADER_TAB_GLOW_R,
+            HEADER_TAB_GLOW_G,
+            HEADER_TAB_GLOW_B,
+            opacity
+        )
     else
-        parts.hover:SetShown(enabled and not selected and handle.hovered and not handle.pressed)
+        parts.hover:SetShown(
+            enabled and not selected and handle.hovered and not handle.pressed
+        )
         parts.pressed:SetShown(pressed)
         parts.disabled:SetShown(not enabled)
     end
+
     local r, g, b = GOLD_R, GOLD_G, GOLD_B
+
     if not enabled then
         r, g, b = 0.5, 0.5, 0.5
     elseif handle.isTab and not selected then
@@ -246,26 +426,38 @@ function Modern.ButtonState(handle)
     elseif not handle.isTab and enabled and handle.hovered then
         r, g, b = 1, 1, 1
     end
+
     parts.label:SetTextColor(r, g, b, 1)
+
     if parts.icon then
         if handle.preserveIconColor then
             parts.icon:SetVertexColor(1, 1, 1, 1)
         else
             SetActionIconColor(parts.icon, enabled)
         end
+
         parts.icon:SetDesaturated(not enabled)
     end
 end
 
 function Modern.ButtonIconLayout(handle)
     local button, parts = handle.target, handle.parts
+
     if parts.icon then
         lib._RestoreIconLayout(handle)
-        local offset = handle.pressIcon and handle.pressed and button:IsEnabled() and not handle.selected and 1 or 0
+        local offset = handle.pressIcon
+                and handle.pressed
+                and button:IsEnabled()
+                and not handle.selected
+                and 1
+            or 0
         -- Compensate for the tertiary-square atlas's heavier bottom edge.
-        local y = handle.variant == "square" and SQUARE_ICON_OFFSET_PIXELS * handle.root.metrics.unit or 0
+        local y = handle.variant == "square"
+                and SQUARE_ICON_OFFSET_PIXELS * handle.root.metrics.unit
+            or 0
         parts.icon:SetPoint("CENTER", button, "CENTER", offset, y - offset)
     end
+
     if parts.checked then
         parts.checked:SetPoint("CENTER", button, "CENTER", 2, 2)
         parts.disabledChecked:SetPoint("CENTER", button, "CENTER", 2, 2)
@@ -283,12 +475,14 @@ end
 function Modern.Icon(handle)
     handle.parts.flatBorder:Hide()
     handle.parts.border:SetTexture(handle.borderTexture)
+
     if handle.alphaOwned then handle.target:SetAlpha(handle.alpha) end
+
     Modern.IconState(handle)
     Modern.IconColor(handle)
-    if handle.crop then
-        handle.target:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-    end
+
+    if handle.crop then handle.target:SetTexCoord(0.08, 0.92, 0.08, 0.92) end
+
     Modern.IconLayout(handle)
 end
 
@@ -321,31 +515,54 @@ end
 function Modern.EditBox(handle)
     local editBox, parts = handle.target, handle.parts
     editBox:SetTextInsets(unpack(handle.textInsets))
+
     if parts.instructions then
         parts.instructions:ClearAllPoints()
-        parts.instructions:SetPoint("TOPLEFT", editBox, "TOPLEFT", handle.textInsets[1], 0)
-        parts.instructions:SetPoint("BOTTOMRIGHT", editBox, "BOTTOMRIGHT", -handle.textInsets[2], 0)
+        parts.instructions:SetPoint(
+            "TOPLEFT",
+            editBox,
+            "TOPLEFT",
+            handle.textInsets[1],
+            0
+        )
+        parts.instructions:SetPoint(
+            "BOTTOMRIGHT",
+            editBox,
+            "BOTTOMRIGHT",
+            -handle.textInsets[2],
+            0
+        )
         parts.clearButton:SetPoint("RIGHT", editBox, "RIGHT", -4, 1)
         parts.clearButton.Icon:SetAtlas("common-search-clearbutton", false)
         parts.clearButton.Icon:SetVertexColor(1, 1, 1, 1)
     end
+
     parts.background:SetAtlas("common-button-tertiary-depressed-normal", false)
     parts.background:SetAlpha(1)
+
     if parts.focus then
-        parts.focus:SetAtlas("common-button-tertiary-depressed-normal-glow", false)
+        parts.focus:SetAtlas(
+            "common-button-tertiary-depressed-normal-glow",
+            false
+        )
         parts.focus:SetShown(editBox:HasFocus() and editBox:IsEnabled())
     end
 end
 
 local GLOW_TEXTURES = {
-    topLeft = "Interface\\Common\\GlowBorder-Corner", topRight = "Interface\\Common\\GlowBorder-Corner",
-    bottomLeft = "Interface\\Common\\GlowBorder-Corner", bottomRight = "Interface\\Common\\GlowBorder-Corner",
-    top = "Interface\\Common\\GlowBorder-Top", bottom = "Interface\\Common\\GlowBorder-Top",
-    left = "Interface\\Common\\GlowBorder-Left", right = "Interface\\Common\\GlowBorder-Left",
+    topLeft = "Interface\\Common\\GlowBorder-Corner",
+    topRight = "Interface\\Common\\GlowBorder-Corner",
+    bottomLeft = "Interface\\Common\\GlowBorder-Corner",
+    bottomRight = "Interface\\Common\\GlowBorder-Corner",
+    top = "Interface\\Common\\GlowBorder-Top",
+    bottom = "Interface\\Common\\GlowBorder-Top",
+    left = "Interface\\Common\\GlowBorder-Left",
+    right = "Interface\\Common\\GlowBorder-Left",
 }
 
 function Modern.GlowBorder(handle)
     local r, g, b, a = handle:GetColor()
+
     for key, edge in pairs(handle.parts.edges) do
         edge:SetTexture(GLOW_TEXTURES[key])
         edge:SetBlendMode("ADD")
@@ -357,9 +574,16 @@ end
 
 function Modern.GlowBorderLayout(handle)
     local frame, edges = handle.target, handle.parts.edges
-    for _, corner in ipairs({ "topLeft", "topRight", "bottomLeft", "bottomRight" }) do
+
+    for _, corner in ipairs({
+        "topLeft",
+        "topRight",
+        "bottomLeft",
+        "bottomRight",
+    }) do
         edges[corner]:SetSize(16, 16)
     end
+
     edges.topLeft:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
     edges.topRight:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
     edges.bottomLeft:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, 0)
