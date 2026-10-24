@@ -19,6 +19,7 @@ lib._media = {
     search = texturePath .. "Vertex-Search.tga",
     clone = texturePath .. "Vertex-Clone.tga",
     folder = texturePath .. "Folder.tga",
+    folderMask = texturePath .. "Folder-Mask.tga",
     lock = texturePath .. "Vertex-Lock.tga",
     unlock = texturePath .. "Vertex-Unlock.tga",
     visible = texturePath .. "Visible.tga",

@@ -3,6 +3,9 @@
 ## Unreleased
 
 ### Added
+- Added `GetIconTexture("folderMask")`, matching the larger folder artwork,
+  for placing custom icon overlays on its front panel while preserving the tab
+  and border.
 - Added `border:LayoutRelative` for consumers that already align their frames
   to physical pixels. Strokes follow movement and resizing without a second
   screen-edge rounding pass or stale position offsets; existing clipped border

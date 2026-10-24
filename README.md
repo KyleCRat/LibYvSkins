@@ -322,14 +322,18 @@ geometry root and effective scale. Defaults for ordinary buttons/inputs are
 context font at size 13, or the corresponding native FontObject when omitted.
 For buttons, `fontObject` takes precedence over the custom font.
 
-`LibYvSkins:GetIconTexture(name)` returns a bundled Vertex texture path for
-`close`, `search`, `clone`, `folder`, `lock`, `unlock`, `visible`, `hidden`, `advanced`, `advancedDisabled`,
+`LibYvSkins:GetIconTexture(name)` returns a bundled texture path for
+`close`, `search`, `clone`, `folder`, `folderMask`, `lock`, `unlock`, `visible`, `hidden`, `advanced`, `advancedDisabled`,
 `settings`, `gear`, `scale`, `plus`, `minus`,
 `arrowUp`, `arrowDown`, `arrowLeft`, `arrowRight`, `caretUp`, `caretDown`,
 `caretLeft`, or `caretRight`.
 The up-arrow asset is named `Vertex-Arrow.tga`. Unknown names raise an error.
 Use these paths with existing button, texture, or icon factories; directional
 variants do not need rotation or flipped UVs.
+`folderMask` matches the front panel of `folder`. Align both textures to the same
+bounds and apply the mask to a separate icon overlay, keeping the folder artwork
+underneath. The mask uses full texture coordinates and supports the authored edge
+transparency; leave the overlay untinted to retain its own colors.
 
 Buttons accept `text`, either `icon` or `iconAtlas`, `iconWidth` / `iconHeight`
 (18), `iconAlpha` (1), `disabledIconAlpha` (0.5), `pressIcon` (false), and

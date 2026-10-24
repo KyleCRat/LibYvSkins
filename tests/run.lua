@@ -3802,6 +3802,7 @@ Test(
                 search = "Vertex-Search.tga",
                 clone = "Vertex-Clone.tga",
                 folder = "Folder.tga",
+                folderMask = "Folder-Mask.tga",
                 caretUp = "Vertex-Caret-Up.tga",
                 caretDown = "Vertex-Caret-Down.tga",
                 lock = "Vertex-Lock.tga",
