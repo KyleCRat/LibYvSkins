@@ -2,10 +2,10 @@
 
 Creation-first windows and appearance primitives for World of Warcraft addons,
 by Yvairel.
-MIT licensed. LibStub API family: `LibYvSkins-1.0`, implementation MINOR `1`.
-No release has been tagged yet.
+MIT licensed. Release `1.0.0` uses the `LibYvSkins-1.0` API family with
+LibStub implementation MINOR `1`.
 
-This development snapshot implements live Modern/Flat selection, windows,
+The library implements live Modern/Flat selection, windows,
 controls, icon surfaces, list accents, and pixel primitives. YvBags is the first
 native consumer: it builds on library-created frames, not existing-window
 adapters. The optional EllesmereUI provider remains a subsequent phase.
@@ -32,7 +32,7 @@ the API family (`LibYvSkins-1.0`). Embed it at `Libs/LibYvSkins-1.0`, including
 its `Media` directory. Owned textures resolve from the winning embed's addon
 name (or the `LibYvSkins-1.0` root when loaded standalone), not the consumer
 context name. Centered 64x64 Vertex glyphs are bundled with the library; no
-other addon supplies them at runtime. The first intended release tag is `1.0.0`.
+other addon supplies them at runtime. The initial release tag is `1.0.0`.
 Only increment MINOR when preparing a subsequent published implementation,
 not for each development change. Preserve all split-file guards: old embeds
 must not replace modules from the newer implementation selected by LibStub.
@@ -225,10 +225,10 @@ measurement to their native resize bounds.
 under the largest declared skin layout, for protected-row prewarming. It is
 calculated from section/margin/padding totals rather than a hardcoded skin delta.
 
-This unreleased API replaces `compactHeader`, `SetHeaderControls`, `LayoutHeader`,
-`IsWindowCompact`, `window.content`, and the old chrome/content measurement names.
-YvBags is the only current consumer and has been converted with the library;
-no SavedVariables migration or release-version bump is involved.
+Early development snapshots used `compactHeader`, `SetHeaderControls`,
+`LayoutHeader`, `IsWindowCompact`, `window.content`, and older chrome/content
+measurement names. These are not part of the `1.0.0` API; development consumers
+must use the window sections and toolbar methods documented above.
 
 ## Skin Selection
 

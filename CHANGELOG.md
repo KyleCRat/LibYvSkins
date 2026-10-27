@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## [1.0.0] - 2026-10-27
 
 ### Added
 - Added `GetIconTexture("folderMask")`, matching the larger folder artwork,
@@ -67,9 +67,9 @@
   in any section, with fixed controls and an optional flexible-width control.
   Converted the development example to retain a Title Bar and two-row Footer
   in both skins; added optional-section and non-search toolbar coverage.
-- Replaced the unreleased `compactHeader`, header-helper, and content-naming
-  contracts together with the sole consumer. No release/MINOR bump or saved-data
-  migration is required; renderer artwork and optical corrections are retained.
+- Publish the window-section and independent toolbar APIs. Earlier development
+  header/content helpers are not part of the `1.0.0` contract; see the README
+  when updating a consumer from those snapshots.
 - Decoupled Modern and Flat rendering. Shared component setup owns fonts,
   opacity, native checkmark artwork, and plain-region styling; each skin
   paints its own appearance without invoking or aliasing another renderer.
@@ -122,3 +122,8 @@
 - Added regression coverage for Modern restoration, background/action dragging,
   native stepper press offsets, owned media load order, corner/footer clearance,
   and glyph/border placement across scales and clips.
+
+### Release Notes
+- Initial release of the `LibYvSkins-1.0` family with LibStub MINOR 1.
+- Include the bundled `Media` directory. LibPopupSlider integration is optional;
+  consumers retain ownership of their settings and skin preferences.

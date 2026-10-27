@@ -5,10 +5,10 @@ manual-changelog:
     markup-type: markdown
 
 ignore:
-    - .stylua.toml
-    - .styluaignore
     - selene.toml
     - wow.yml
     - AGENTS.md
     - tests
     - examples
+    - Media/Textures/Textures.afphoto
+    - Media/Textures/common-header-tab/common-header-tab-atlas.afphoto
