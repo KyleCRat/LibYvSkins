@@ -305,7 +305,7 @@ end)
 | Factory | Modern presentation / state |
 | --- | --- |
 | `CreateButton` | Regular tertiary command or `variant = "square"`; hover, press, disabled art. Handle: `SetVariant("command" / "square")`. |
-| `CreateTab` | Regular tertiary selected state with a 3-unit outset, or nine-slice header artwork with `tabStyle = "header"`. `SetSelected(boolean)` takes precedence over hover and press. |
+| `CreateTab` | Regular tertiary selected state with a 3-unit outset. `SetSelected(boolean)` takes precedence over hover and press. |
 | `CreateCheckbox` | Square tertiary CheckButton with native checked/disabled-checked textures. Use raw `SetChecked` / `GetChecked`. |
 | `CreateEditBox` | Tertiary-depressed input with native input scripts and optional focus glow. No value-commit policy. |
 | `CreateSearchBox` | Same background, preserving native search/placeholder/clear behavior and tuned icon anchors. |
@@ -348,18 +348,20 @@ Checkbox `checkmarkScale` defaults to 1.25. Input `focusGlow` defaults to true.
 Caller-owned anchors and dimensions
 remain independent of input values and visual state.
 
-`CreateTab(parent, { tabStyle = "header", text = "Display" })` opts into the
-bundled header atlas in Modern. It defaults to 64 UI units high; the effective
-UI scale determines its physical size. Corners retain their size as width and
-height increase, while the edges and fill stretch. Compact tabs reduce the
-corners proportionally in both dimensions. A dark grey background accent sits
-above the fill and beneath the border and gold highlights.
-Slice boundaries snap to physical screen pixels; linear filtering keeps the
-antialiased corners and glow smooth when scaled. Caller-owned button anchors
-and dimensions stay intact. Header tabs use the command variant and retain the usual
-`SetSelected` handle and native click/enabled APIs. Flat renders these tabs with
-its standard flat surfaces.
-Omitting `tabStyle` retains the existing tertiary tab appearance.
+For settings pages, create the reusable control with
+`LibModernSettings:CreateTab(parent, options)`, then opt into skin changes with
+`context:StyleSettingsTab(tab, { geometryRoot = window })`. LMS supplies the
+complete default artwork, input commits, navigation, selected state and pixel
+geometry. This adapter changes only appearance through `SetTabAppearance`;
+Modern uses LMS's defaults and Flat uses the context's accent and font.
+It returns a registered appearance handle, and updates with the context's skin
+and tokens. LMS remains optional; the caller supplies an already-created tab.
+Different consumer contexts remain independent.
+
+The former `CreateTab(..., { tabStyle = "header" })` option is removed. Header
+tabs belong to LMS, including their artwork. Call `SetSelected` on the LMS
+button; the optional YvSkins handle controls only presentation. YvSkins'
+ordinary tertiary `CreateTab` remains available without LMS.
 
 Scrollbars optionally accept `anchor` and a positive `gutterWidth` to let the
 renderer own their outer anchors. The gutter is inside the anchor's right edge:

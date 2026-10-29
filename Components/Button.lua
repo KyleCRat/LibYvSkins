@@ -18,52 +18,6 @@ lib._buttonPrototype = Button
 Button.__index = Button
 setmetatable(Button, { __index = lib._controlPrototype })
 
-local HEADER_TAB_HEIGHT, HEADER_TAB_ATLAS_SIZE = 64, 256
-local HEADER_TAB_LAYERS = {
-    {
-        key = "background",
-        x = 0,
-        y = 64,
-        layer = "BACKGROUND",
-        sublevel = 0,
-    },
-    {
-        key = "backgroundAccent",
-        x = 112,
-        y = 0,
-        layer = "BACKGROUND",
-        sublevel = 1,
-    },
-    {
-        key = "normal",
-        x = 0,
-        y = 0,
-        layer = "BORDER",
-    },
-    {
-        key = "hover",
-        x = 112,
-        y = 64,
-        layer = "ARTWORK",
-    },
-    {
-        key = "selected",
-        x = 112,
-        y = 128,
-        layer = "ARTWORK",
-    },
-}
-local HEADER_TAB_COLUMNS = {
-    { start = 0, finish = 32 },
-    { start = 32, finish = 33 },
-    { start = 80, finish = 112 },
-}
-local HEADER_TAB_ROWS = {
-    { start = 0, finish = 32 },
-    { start = 32, finish = 33 },
-    { start = 48, finish = 64 },
-}
-
 local function ValidateOptions(parent, options)
     lib._ValidateControl(parent, options)
     assert(
@@ -77,14 +31,8 @@ local function ValidateOptions(parent, options)
         "selected must be boolean"
     )
     assert(
-        options.tabStyle == nil or options.tabStyle == "header",
-        "tabStyle must be header when supplied"
-    )
-    assert(
-        not options.tabStyle
-            or options.variant == nil
-            or options.variant == "command",
-        "header tabs use the command variant"
+        options.tabStyle == nil,
+        "tabStyle was removed; use LibModernSettings:CreateTab for header tabs"
     )
     assert(
         not (options.icon and options.iconAtlas),
@@ -125,128 +73,6 @@ local function ValidateOptions(parent, options)
     end
 end
 
-local function GetHeaderTabUVRange(offset, slice)
-    if slice.finish - slice.start == 1 then
-        -- Sample the single stretch texel at its center so linear filtering
-        -- cannot pull adjacent atlas pixels into the stretched edge or fill.
-        local center = (offset + slice.start + 0.5) / HEADER_TAB_ATLAS_SIZE
-        return center, center
-    end
-
-    return (offset + slice.start) / HEADER_TAB_ATLAS_SIZE,
-        (offset + slice.finish) / HEADER_TAB_ATLAS_SIZE
-end
-
-local function CreateHeaderTabArt(button)
-    local layers = {}
-    -- Native texture slice margins sample the entire center band. This atlas
-    -- provides separate one-texel strips, so each layer uses nine UV regions.
-    for _, layerDefinition in ipairs(HEADER_TAB_LAYERS) do
-        local slices = {}
-
-        for rowIndex, row in ipairs(HEADER_TAB_ROWS) do
-            local top, bottom = GetHeaderTabUVRange(layerDefinition.y, row)
-
-            for columnIndex, column in ipairs(HEADER_TAB_COLUMNS) do
-                local left, right =
-                    GetHeaderTabUVRange(layerDefinition.x, column)
-                local texture = button:CreateTexture(
-                    nil,
-                    layerDefinition.layer,
-                    nil,
-                    layerDefinition.sublevel
-                )
-                texture:SetTexture(
-                    lib._headerTabTexture,
-                    "CLAMP",
-                    "CLAMP",
-                    "LINEAR"
-                )
-                texture:SetTexCoord(left, right, top, bottom)
-                texture:SetSnapToPixelGrid(false)
-                texture:SetTexelSnappingBias(0)
-                texture:SetBlendMode("BLEND")
-                slices[(rowIndex - 1) * 3 + columnIndex] = texture
-            end
-        end
-
-        layers[layerDefinition.key] = slices
-    end
-
-    return layers
-end
-
-local function LayoutHeaderTab(handle)
-    local button = handle.target
-    local visible = handle.headerTabVisible
-
-    for index = 1, 9 do
-        visible[index] = false
-    end
-
-    local originX, originY, width, height = button:GetRect()
-
-    if
-        not originX
-        or not originY
-        or not width
-        or not height
-        or width <= 0
-        or height <= 0
-    then
-        return
-    end
-
-    local unit = handle.root.metrics.unit
-    -- Relative offsets can be whole pixels while an ancestor leaves the tab
-    -- between pixels. Snap absolute edges and share the joins across all layers.
-    local leftPixel = math.floor(originX / unit + 0.5)
-    local bottomPixel = math.floor(originY / unit + 0.5)
-    local rightPixel = math.floor((originX + width) / unit + 0.5)
-    local topPixel = math.floor((originY + height) / unit + 0.5)
-    local pixelWidth, pixelHeight =
-        rightPixel - leftPixel, topPixel - bottomPixel
-
-    if pixelWidth <= 0 or pixelHeight <= 0 then return end
-
-    local cornerPixels = math.min(
-        math.max(1, math.floor(32 / unit + 0.5)),
-        math.floor(pixelWidth / 2),
-        math.floor(pixelHeight / 2 + 0.5)
-    )
-    local bottomPixels =
-        math.min(pixelHeight - cornerPixels, math.floor(cornerPixels / 2 + 0.5))
-
-    local columns, rows = handle.headerTabColumns, handle.headerTabRows
-    columns[1], columns[2] = leftPixel, leftPixel + cornerPixels
-    columns[3], columns[4] = rightPixel - cornerPixels, rightPixel
-    rows[1], rows[2] = topPixel, topPixel - cornerPixels
-    rows[3], rows[4] = bottomPixel + bottomPixels, bottomPixel
-
-    for row = 1, 3 do
-        local y = rows[row + 1] * unit - originY
-        local drawHeight = (rows[row] - rows[row + 1]) * unit
-
-        for column = 1, 3 do
-            local x = columns[column] * unit - originX
-            local drawWidth = (columns[column + 1] - columns[column]) * unit
-            local index = (row - 1) * 3 + column
-            -- Zero texture dimensions can restore the atlas's intrinsic size.
-            -- Leave empty slices unsized; the renderer owns their visibility.
-            visible[index] = drawWidth > 0 and drawHeight > 0
-
-            if visible[index] then
-                for _, slices in pairs(handle.parts.headerTab) do
-                    local texture = slices[index]
-                    texture:ClearAllPoints()
-                    texture:SetPoint("BOTTOMLEFT", button, "BOTTOMLEFT", x, y)
-                    texture:SetSize(drawWidth, drawHeight)
-                end
-            end
-        end
-    end
-end
-
 function definition.Validate(target, parts, options)
     assert(
         target and type(target.IsEnabled) == "function",
@@ -257,7 +83,6 @@ function definition.Validate(target, parts, options)
         "button role requires bounds"
     )
     ValidateOptions(parts.bounds, options)
-    assert(not options.tabStyle or options.isTab, "tabStyle requires a tab")
 end
 
 function definition.Initialize(handle, options)
@@ -267,7 +92,6 @@ function definition.Initialize(handle, options)
     handle.variant = options.variant or "command"
     handle.selected = options.selected == true
     handle.isTab = options.isTab == true
-    handle.tabStyle = options.tabStyle
     handle.hovered, handle.pressed = false, false
     handle.pressIcon = options.pressIcon == true
     handle.preserveIconColor = options.preserveIconColor == true
@@ -281,16 +105,10 @@ function definition.Initialize(handle, options)
         button:GetPushedTextOffset()
     button:SetPushedTextOffset(0, 0)
 
-    if handle.tabStyle == "header" then
-        parts.headerTab = CreateHeaderTabArt(button)
-        handle.headerTabColumns, handle.headerTabRows = {}, {}
-        handle.headerTabVisible = {}
-    else
-        parts.normal = lib._CreateStateTexture(button, "BACKGROUND")
-        parts.hover = lib._CreateStateTexture(button, "BORDER")
-        parts.pressed = lib._CreateStateTexture(button, "BORDER")
-        parts.disabled = lib._CreateStateTexture(button, "BORDER")
-    end
+    parts.normal = lib._CreateStateTexture(button, "BACKGROUND")
+    parts.hover = lib._CreateStateTexture(button, "BORDER")
+    parts.pressed = lib._CreateStateTexture(button, "BORDER")
+    parts.disabled = lib._CreateStateTexture(button, "BORDER")
 
     local label = button:CreateFontString(nil, "OVERLAY")
     parts.label = label
@@ -373,10 +191,6 @@ end
 function definition.Layout(handle)
     local renderer = handle.context:_GetRenderer()
 
-    if handle.parts.headerTab then
-        LayoutHeaderTab(handle)
-        renderer.ButtonState(handle)
-    end
     -- Recompute snapped glyph geometry after scale changes, without changing
     -- the caller's button geometry or reloading fonts/atlases.
     renderer.ButtonIconLayout(handle)
@@ -411,10 +225,6 @@ function Button:SetVariant(variant)
         variant == "command" or variant == "square",
         "button variant must be command or square"
     )
-    assert(
-        not self.tabStyle or variant == "command",
-        "header tabs use the command variant"
-    )
     self.variant = variant
     self:RefreshAppearance()
 end
@@ -423,7 +233,6 @@ local function Create(context, parent, options, checkbox, isTab)
     if options == nil then options = {} end
 
     ValidateOptions(parent, options)
-    assert(not options.tabStyle or isTab, "tabStyle requires a tab")
     context:GetColor(options.colorToken or "accent")
     local button = CreateFrame(
         checkbox and "CheckButton" or "Button",
@@ -431,11 +240,9 @@ local function Create(context, parent, options, checkbox, isTab)
         parent,
         options.template
     )
-    local defaultHeight = options.tabStyle == "header" and HEADER_TAB_HEIGHT
-        or 34
     button:SetSize(
         options.width or (checkbox and 34 or 100),
-        options.height or defaultHeight
+        options.height or 34
     )
     button:RegisterForClicks("LeftButtonUp")
     local settings = {}

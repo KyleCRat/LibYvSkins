@@ -14,16 +14,17 @@ lib._modules.Modern = MINOR
 local Modern = lib._skins.modern or {}
 lib._skins.modern = Modern
 local GOLD_R, GOLD_G, GOLD_B = 1, 0.82, 0
--- Match the border and inset accent in common-sidetab.
-local HEADER_TAB_BORDER_R, HEADER_TAB_BORDER_G, HEADER_TAB_BORDER_B =
-    162 / 255, 161 / 255, 158 / 255
-local HEADER_TAB_ACCENT_R, HEADER_TAB_ACCENT_G, HEADER_TAB_ACCENT_B =
-    53 / 255, 47 / 255, 44 / 255
--- Match the pale gold in common-button-tertiary-depressed-normal-glow.
-local HEADER_TAB_GLOW_R, HEADER_TAB_GLOW_G, HEADER_TAB_GLOW_B =
-    243 / 255, 221 / 255, 131 / 255
-local HEADER_TAB_TEXT_OFFSET_Y = -3
 local SQUARE_ICON_OFFSET_PIXELS = 1
+
+function Modern.SettingsTab(handle)
+    handle.target:SetTabAppearance({
+        mode = "header",
+        font = handle.font,
+        fontSize = handle.fontSize,
+        fontFlags = handle.fontFlags,
+        fontObject = handle.fontObject,
+    })
+end
 
 Modern.WindowMetrics = {
     padding = {
@@ -296,11 +297,6 @@ function Modern.Button(handle)
     local button, parts = handle.target, handle.parts
     parts.label:ClearAllPoints()
 
-    if parts.headerTab then
-        handle:RefreshState()
-        return
-    end
-
     local atlases = BUTTON_ATLASES[handle.variant]
     local selected = handle.selected
     parts.normal:SetAlpha(1)
@@ -329,93 +325,23 @@ function Modern.Button(handle)
     handle:RefreshState()
 end
 
-local function PaintHeaderTabLayer(
-    slices,
-    geometryVisible,
-    shown,
-    r,
-    g,
-    b,
-    alpha
-)
-    for index, texture in ipairs(slices) do
-        texture:SetVertexColor(r, g, b, alpha)
-        texture:SetShown(shown and geometryVisible[index] == true)
-    end
-end
-
 function Modern.ButtonState(handle)
     local button, parts = handle.target, handle.parts
     local enabled, selected = button:IsEnabled(), handle.selected
     local pressed = enabled and not selected and handle.pressed
-    -- The header's inset border places its visual center below the frame center.
-    local labelY = handle.labelOffsetY
-        + (parts.headerTab and HEADER_TAB_TEXT_OFFSET_Y or 0)
     parts.label:SetPoint(
         "CENTER",
         button,
         "CENTER",
         pressed and handle.pushedTextOffsetX or 0,
-        labelY + (pressed and handle.pushedTextOffsetY or 0)
+        handle.labelOffsetY + (pressed and handle.pushedTextOffsetY or 0)
     )
 
-    if parts.headerTab then
-        local layers = parts.headerTab
-        local geometryVisible = handle.headerTabVisible
-        local opacity = enabled and 1 or 0.4
-        local background = selected and 0.10 or (pressed and 0.035 or 0.06)
-        PaintHeaderTabLayer(
-            layers.background,
-            geometryVisible,
-            true,
-            background,
-            background,
-            background,
-            0.95
-        )
-        PaintHeaderTabLayer(
-            layers.backgroundAccent,
-            geometryVisible,
-            true,
-            HEADER_TAB_ACCENT_R,
-            HEADER_TAB_ACCENT_G,
-            HEADER_TAB_ACCENT_B,
-            opacity
-        )
-        PaintHeaderTabLayer(
-            layers.normal,
-            geometryVisible,
-            true,
-            HEADER_TAB_BORDER_R,
-            HEADER_TAB_BORDER_G,
-            HEADER_TAB_BORDER_B,
-            opacity
-        )
-        PaintHeaderTabLayer(
-            layers.hover,
-            geometryVisible,
-            enabled and not selected and (handle.hovered or pressed),
-            HEADER_TAB_GLOW_R,
-            HEADER_TAB_GLOW_G,
-            HEADER_TAB_GLOW_B,
-            opacity
-        )
-        PaintHeaderTabLayer(
-            layers.selected,
-            geometryVisible,
-            selected,
-            HEADER_TAB_GLOW_R,
-            HEADER_TAB_GLOW_G,
-            HEADER_TAB_GLOW_B,
-            opacity
-        )
-    else
-        parts.hover:SetShown(
-            enabled and not selected and handle.hovered and not handle.pressed
-        )
-        parts.pressed:SetShown(pressed)
-        parts.disabled:SetShown(not enabled)
-    end
+    parts.hover:SetShown(
+        enabled and not selected and handle.hovered and not handle.pressed
+    )
+    parts.pressed:SetShown(pressed)
+    parts.disabled:SetShown(not enabled)
 
     local r, g, b = GOLD_R, GOLD_G, GOLD_B
 

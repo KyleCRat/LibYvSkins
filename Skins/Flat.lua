@@ -17,6 +17,22 @@ local TEXT_OFFSET_Y = -1
 local SCROLL_TRACK_INSET = 15
 local CHECKMARK_OFFSET_PIXELS = 1
 
+function Flat.SettingsTab(handle)
+    local r, g, b, a = handle.context:GetColor(handle.colorToken)
+    handle.target:SetTabAppearance({
+        mode = "flat",
+        font = handle.font,
+        fontSize = handle.fontSize,
+        fontFlags = handle.fontFlags,
+        fontObject = handle.fontObject,
+        colors = {
+            flatAccent = { r, g, b, a },
+            text = { 0.92, 0.92, 0.92, 1 },
+            selectedText = { r, g, b, a },
+        },
+    })
+end
+
 Flat.WindowMetrics = {
     padding = {
         left = 8,
@@ -104,15 +120,7 @@ local function HideButtonArt(parts)
 end
 
 function Flat.Button(handle)
-    if handle.parts.headerTab then
-        for _, slices in pairs(handle.parts.headerTab) do
-            for _, texture in ipairs(slices) do
-                texture:Hide()
-            end
-        end
-    else
-        HideButtonArt(handle.parts)
-    end
+    HideButtonArt(handle.parts)
 
     handle.parts.label:ClearAllPoints()
     handle.parts.label:SetPoint(

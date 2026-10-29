@@ -15,6 +15,7 @@
     <Script file="Components\ScrollBar.lua"/>
     <Script file="Components\NativeButton.lua"/>
     <Script file="Integrations\PopupSlider.lua"/>
+    <Script file="Integrations\ModernSettings.lua"/>
     <Script file="Window.lua"/>
     <Script file="Toolbar.lua"/>
     <Script file="Components\Separator.lua"/>

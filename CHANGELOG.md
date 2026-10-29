@@ -1,5 +1,21 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- Add explicit `context:StyleSettingsTab` for existing LMS tabs. Modern uses the
+  LMS header appearance; Flat supplies the context's accent and font styling.
+  Live skin changes preserve LMS selection, callbacks, navigation and geometry.
+  Neither library gains a mandatory dependency on the other.
+
+### Removed
+
+- Remove `CreateTab`'s `tabStyle = "header"` option, its renderer and bundled
+  header artwork. Create header tabs with `LibModernSettings:CreateTab` and
+  optionally style them with `context:StyleSettingsTab`. This is a breaking
+  API change; ordinary tertiary tabs remain supported without LMS.
+
 ## [1.0.0] - 2026-10-27
 
 ### Added

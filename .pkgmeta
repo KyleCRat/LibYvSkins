@@ -11,4 +11,3 @@ ignore:
     - tests
     - examples
     - Media/Textures/Textures.afphoto
-    - Media/Textures/common-header-tab/common-header-tab-atlas.afphoto
