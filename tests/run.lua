@@ -3879,7 +3879,7 @@ Test(
             70,
             "invalid updates leave existing layout intact"
         )
-        state:Load(2)
+        state:Load(state.lib._implementationMinor + 1)
         context:LayoutToolbar(toolbar)
         H.Equal(context:GetToolbarMinimumWidth(toolbar), 70)
         local other = state.lib:CreateContext("OtherToolbarOwner")

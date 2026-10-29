@@ -45,7 +45,7 @@ return function(H, Test)
             H.Equal(first:GetWidth(), 116)
             H.Equal(first:IsEnabled(), true)
             local previousGeometry = first.geometryUpdates
-            state:Load(2)
+            state:Load(library._implementationMinor + 1)
             context:RequestSkin("modern")
             state:Flush()
             H.Equal(first.appearance.mode, "header")

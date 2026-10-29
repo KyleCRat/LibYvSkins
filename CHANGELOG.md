@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [2.0.0] - 2026-10-29
 
 ### Added
 
@@ -15,6 +15,16 @@
   header artwork. Create header tabs with `LibModernSettings:CreateTab` and
   optionally style them with `context:StyleSettingsTab`. This is a breaking
   API change; ordinary tertiary tabs remain supported without LMS.
+
+### Upgrade Notes
+
+- Deliberately retain the `LibYvSkins-1.0` API family with LibStub MINOR 2.
+  This release withdraws the header-tab option from that family without a
+  compatibility implementation. Other consumers keep their existing embed path
+  and LibStub lookup.
+- Migrate every header-tab caller to LMS 1.12.0 or newer before loading it
+  alongside this release: LibStub selects one implementation for all consumers
+  of this family. Call `SetSelected` on the LMS button instead of a skin handle.
 
 ## [1.0.0] - 2026-10-27
 

@@ -2,8 +2,11 @@
 
 Creation-first windows and appearance primitives for World of Warcraft addons,
 by Yvairel.
-MIT licensed. Release `1.0.0` uses the `LibYvSkins-1.0` API family with
-LibStub implementation MINOR `1`.
+MIT licensed. Release `2.0.0` deliberately retains the `LibYvSkins-1.0` API
+family with LibStub implementation MINOR `2`. Its former header-tab option
+is removed; migrate those callers to LMS 1.12.0 or newer before loading this
+release alongside them. Ordinary tertiary tabs and other consumers keep the
+same embed path and LibStub lookup.
 
 The library implements live Modern/Flat selection, windows,
 controls, icon surfaces, list accents, and pixel primitives. YvBags is the first
